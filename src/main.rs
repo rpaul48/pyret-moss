@@ -1,6 +1,6 @@
 //use std::io;
-use std::fs;
-use std::path::Path;
+// use std::fs;
+// use std::path::Path;
 
 fn main() {
     // ask user for input directory of files
@@ -14,9 +14,9 @@ fn main() {
     //let str1 = &folder_path_str[..];
     //let folder_path = Path::new(str1);
 
-    let folder_path = Path::new("./test-dirs/txts");
+    // let folder_path = Path::new("./test-dirs/txts");
 
-    for file in fs::read_dir(folder_path).unwrap() {
-        println!("file path: {}", file.unwrap().path().display())
-    }
+    // for file in fs::read_dir(folder_path).unwrap() {
+    //     println!("file path: {}", file.unwrap().path().display())
+    // }
 }
