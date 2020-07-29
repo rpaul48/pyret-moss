@@ -7,14 +7,14 @@ mod normalize;
 
 use fingerprint::Fingerprint;
 
-struct Document {
-    path: String,
-    fingerprints: Vec<Fingerprint>
-}
-
 struct Submission {
     path: String,
     documents: Vec<Document>
+}
+
+struct Document {
+    path: String,
+    fingerprints: Vec<Fingerprint>
 }
 
 fn main() {
@@ -46,7 +46,7 @@ main()
         construct Submission struct for this sub
 
         for each document in this submission
-            call normalize() on doc text
+            call normalize() on doc text -> normalized text & mapping
             call fingerprint() on normalized text & line mapping
 
             construct Document struct for this doc, add to Submission
@@ -59,7 +59,7 @@ main()
     for each important fingerprint
         for each possible pair of submissions associated with this print
             add this print to vec of prints mapped to by this submission pair
-    
+
     order submission pairs by number of matches, take top n
 
     generate report for the user
