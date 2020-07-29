@@ -11,5 +11,5 @@ pub struct Fingerprint {
 
 // computes the fingerprints of a normalized document, using robust winnowing
 fn fingerprint(doc: String, lm: Box<LineMapping>) -> Vec<Fingerprint> {
-
+    unimplemented!();
 }
