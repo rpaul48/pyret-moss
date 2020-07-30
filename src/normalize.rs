@@ -2,20 +2,23 @@
 
 use regex::Regex;
 
-// A LineMapping encodes line number information from the original
-// file from which normalized text has been generated.
-// 
+// A NormText stores the normalized text of some program and
+// encodes line number information from the original
+// file from which normalized version has been generated.
+// (accessible from line_number method)
+//
 // line_ends[x] = y means that y is the index of the first char
 // in the normalized text occurring *after* line x+1 in the original
 #[derive(Debug, PartialEq)]
-pub struct LineMapping {
+pub struct NormText {
+    pub value: String,
     line_ends: Vec<i32>
 }
 
-impl LineMapping {
+impl NormText {
     // determine the line number in the original text that
     // a char at index i in the normalized text corresponds to
-    fn line_number(i: i32) -> i32 {
+    pub fn line_number(i: i32) -> i32 {
         unimplemented!();
     }
 }
@@ -29,7 +32,7 @@ impl LineMapping {
 //      5. remove comments
 // Returns the normalized string & enough info to map parts 
 // of the normalized text to line numbers in the original (LineMapping)
-pub fn normalize(program: String) -> (String, Box<LineMapping>) {
+pub fn normalize(program: String) -> NormText {
     unimplemented!();
 }
 
@@ -57,152 +60,127 @@ mod normalize_tests {
     use super::*;
     use std::convert::TryInto;
 
+    // generic testing form for normalize()
+    // calls normalize() on input string & asserts output text value & line ends
+    fn test_norm(input: &str, out_val: &str, out_line_ends: Vec<i32>) {
+        let norm = normalize(String::from(input));
+        assert_eq!(norm.value, String::from(out_val));
+        assert_eq!(norm.line_ends, out_line_ends);
+    }
+
     #[test]
     fn whitespace_normalized() {
-        {
-            let (norm, lm) = normalize(String::from("  \n \na = 1\n\t\t "));
-            let out = String::from(" v = 1 ");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![1, 1, 6, 7] });
-        }
-        {
-            let (norm, lm) = normalize(String::from("check:\n\n\t1 is \n2\nend"));
-            let out = String::from("check: 1 is 2 end");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![6, 6, 11, 13, 16] });
-        }
+        test_norm(
+            "  \n \na = 1\n\t\t ",
+            " v = 1 ",
+            vec![1, 1, 6, 7]);
+        test_norm(
+            "check:\n\n\t1 is \n2\nend",
+            "check: 1 is 2 end",
+            vec![6, 6, 11, 13, 16]);
     }
 
     #[test]
     fn identifiers_normalized() {
-        {
-            let (norm, lm) = normalize(
-                String::from("name-1 = 7\nsecond_name = name-1 * name-1"));
-            let out = String::from("v = 7 v = v * v");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![6, 15] });
-        }
+        test_norm(
+            "name-1 = 7\nsecond_name = name-1 * name-1",
+            "v = 7 v = v * v",
+            vec![6, 15]);
     }
 
     #[test]
     fn types_removed() {
-        {
-            let (norm, lm) = normalize(
-                String::from("x :: Number = 10\ny :: Boolean = true"));
-            let out = String::from("v = 10 v = true");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![7, 15] });
-        }
-        {
-            let (norm, lm) = normalize(
-                String::from("fun f(a :: Custom, b :: List)\n-> String:\n"));
-            let out = String::from("fun v(v, v):");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![11, 12, 12] });
-        }
-        {
-            let (norm, lm) = normalize(
-                String::from("param :: List<List<InnerType>>"));
-            let out = String::from("v");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![1] });
-        }
-        {
-            let (norm, lm) = normalize(
-                String::from("complex :: ((Number -> String) -> \
-                            (List<String> -> List<List<Number>>)) = 10"));
-            let out = String::from("v = 10");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![6] });
-        }
+        test_norm(
+            "x :: Number = 10\ny :: Boolean = true",
+            "v = 10 v = true",
+            vec![7, 15]);
+        test_norm(
+            "fun f(a :: Custom, b :: List)\n-> String:\n",
+            "fun v(v, v):",
+            vec![11, 12, 12]);
+        test_norm(
+            "param :: List<List<InnerType>>",
+            "v",
+            vec![1]);
+        test_norm(
+            "complex :: ((Number -> String) -> \
+            (List<String> -> List<List<Number>>)) = 10",
+
+            "v = 10",
+            vec![6]);
     }
 
     #[test]
     fn docs_removed() {
-        {
-            let (norm, lm) = normalize(
-                String::from("fun f():\n\
-                                \tdoc: \"docstring here\"\n\
-                                5\n\
-                            end"));
-            let out = String::from("fun v(): 5 end");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![9, 9, 11, 14] });
-        }
-        {
-            let (norm, lm) = normalize(
-                String::from("fun g():\n\
-                                doc: ```This is a longer docstring.\n\
-                                It takes place over multiple lines.```\n\
-                                0\n\
-                            end"));
-            let out = String::from("fun v(): 0 end");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![9, 9, 9, 11, 14] });
-        }
+        test_norm(
+            "fun f():\n\
+                \tdoc: \"docstring here\"\n\
+                5\n\
+            end",
+
+            "fun v(): 5 end",
+            vec![9, 9, 11, 14]);
+
+        test_norm(
+            "fun g():\n\
+                doc: ```This is a longer docstring.\n\
+                It takes place over multiple lines.```\n\
+                0\n\
+            end",
+
+            "fun v(): 0 end",
+            vec![9, 9, 9, 11, 14]);
     }
 
     #[test]
     fn comments_removed() {
-        {
-            let (norm, lm) = normalize(
-                String::from("x = 1 # x is 1\ny = 2 # the value of y"));
-            let out = String::from("v = 1 v = 2 ");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![6, 12] });
-        }
-        {
-            let (norm, lm) = normalize(
-                String::from("n = true #| commented code:\n\
-                                x = 15\n\
-                                y =\"string value\"\n\
-                                |#\n\
-                            m = false"));
-            let out = String::from("v = true v = false");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![9, 9, 9, 9, 18] });
-        }
+        test_norm(
+            "x = 1 # x is 1\ny = 2 # the value of y",
+            "v = 1 v = 2 ",
+            vec![6, 12]);
+        test_norm(
+            "n = true #| commented code:\n\
+            x = 15\n\
+            y =\"string value\"\n\
+            |#\n\
+            m = false",
+
+            "v = true v = false",
+            vec![9, 9, 9, 9, 18]);
     }
 
     #[test]
     fn simple_func() {
-        let (norm, lm) = normalize(String::from("fun square(n): n * n end"));
-        let out = String::from("fun v(v): v * v end");
-        assert_eq!(norm, out);
-        assert_eq!(*lm, LineMapping { line_ends: vec![out.len().try_into().unwrap()] });
+        test_norm(
+            "fun square(n): n * n end",
+            "fun v(v): v * v end",
+            vec![19]);
     }
 
     #[test]
     fn keywords_and_otherwise_preserved() {
         // ensure any other syntactic elements are preserved
-        {
-            let (norm, lm) = normalize(
-                String::from("import tables as T"));
-            let out = String::from("import v as v");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![13] });
-        }
-        {
-            let (norm, lm) = normalize(
-                String::from("if (5 * 2) < 10:\n\
-                                    true\n\
-                                else:\n\
-                                    false\n\
-                                end"));
-            let out = String::from("if (5 * 2) < 10: true else: false end");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![17, 22, 28, 34, 37] });
-        }
-        {
-            let (norm, lm) = normalize(
-                String::from("examples:\n\
-                                tmp = \"x = 5\"\n\
-                                tmp is tmp\n\
-                            end"));
-            let out = String::from("examples: v = \"x = 5\" v is v end");
-            assert_eq!(norm, out);
-            assert_eq!(*lm, LineMapping { line_ends: vec![10, 22, 29, 32] });
-        }
+        test_norm(
+            "import tables as T",
+            "import v as v",
+            vec![13]);
+        test_norm(
+            "if (5 * 2) < 10:\n\
+                true\n\
+            else:\n\
+                false\n\
+            end",
+
+            "if (5 * 2) < 10: true else: false end",
+            vec![17, 22, 28, 34, 37]);
+        test_norm(
+            "examples:\n\
+                tmp = \"x = 5\"\n\
+                tmp is tmp\n\
+            end",
+
+            "examples: v = \"x = 5\" v is v end",
+            vec![10, 22, 29, 32]);
     }
 
     #[test]
