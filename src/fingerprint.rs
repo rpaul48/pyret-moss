@@ -25,19 +25,22 @@ fn fingerprint(doc: String/*,  lm: Box<LineMapping> */) -> Vec<Fingerprint> {
 
 
 
-    let len = doc.len();
+    let len = doc.len() as i32;
     // only attempt to fingerprint if the processed string is greater than the noise threshold
     if (len > k) {
         // construct k-grams, a Vec<str>
-        let mut k-grams = Vec::new();
+        let mut k_grams = Vec::new();
         let mut start: i32 = 0;
         let mut end: i32 = k;
 
         while ((end - 1) <= len) {
-            k-grams.push(&doc[start..end]);
+            let next_k_gram = &doc[start as usize..end as usize];
+            k_grams.push(next_k_gram);
             start += 1; end += 1;
         }
 
         // rolling hash each k-gram, constructing a vector of i32s
     }
+
+    unimplemented!();
 }
