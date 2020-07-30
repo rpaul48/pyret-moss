@@ -2,6 +2,9 @@
 // use std::fs;
 // use std::path::Path;
 
+#[macro_use] extern crate lazy_static;
+extern crate regex;
+
 mod fingerprint;
 mod normalize;
 

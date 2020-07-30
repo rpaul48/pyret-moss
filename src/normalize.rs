@@ -1,5 +1,7 @@
 /* normalize.rs: Pre-processer for Pyret programs to eliminate irrelevant features */
 
+use regex::Regex;
+
 // A LineMapping encodes line number information from the original
 // file from which normalized text has been generated.
 // 
@@ -29,6 +31,24 @@ impl LineMapping {
 // of the normalized text to line numbers in the original (LineMapping)
 pub fn normalize(program: String) -> (String, Box<LineMapping>) {
     unimplemented!();
+}
+
+// determine if a string slice matches a Pyret keyword
+fn is_pyret_keyword(s: &str) -> bool {
+    lazy_static! {
+        static ref RE: Regex = Regex::new(
+            "^(and|as|ascending|ask|by|cases|check|data|descending|do|does-not-raise\
+                |else|else if|end|examples|extend|extract|false|for|from|fun|hiding|if\
+                |import|include|is|is==|is=~|is-not|is-not==|is-not=~|is-not<=>|is-roughly\
+                |is<=>|because|lam|lazy|let|letrec|load-table|method|module|newtype|of|or\
+                |provide|provide-types|raises|raises-other-than|raises-satisfies\
+                |raises-violates|reactor|rec|ref|sanitize|satisfies|select|shadow|sieve\
+                |spy|order|transform|true|type|type-let|using|var|violates|when|block:\
+                |check:|doc:|else:|examples:|otherwise:|provide:|row:|sharing:|source:\
+                |table:|then:|where:|with:)$"
+        ).unwrap();
+    }
+    RE.is_match(s)
 }
 
 
@@ -80,20 +100,46 @@ mod normalize_tests {
             assert_eq!(norm, out);
             assert_eq!(*lm, LineMapping { line_ends: vec![11, 12, 12] });
         }
-        // vary whitespace with -> output annotations
-        // use complex types
+        {
+            let (norm, lm) = normalize(
+                String::from("param :: List<List<InnerType>>"));
+            let out = String::from("v");
+            assert_eq!(norm, out);
+            assert_eq!(*lm, LineMapping { line_ends: vec![1] });
+        }
+        {
+            let (norm, lm) = normalize(
+                String::from("complex :: ((Number -> String) -> \
+                            (List<String> -> List<List<Number>>)) = 10"));
+            let out = String::from("v = 10");
+            assert_eq!(norm, out);
+            assert_eq!(*lm, LineMapping { line_ends: vec![6] });
+        }
     }
 
     #[test]
     fn docs_removed() {
         {
             let (norm, lm) = normalize(
-                String::from("fun f():\n\tdoc: \"docstring here\"\n5\nend"));
+                String::from("fun f():\n\
+                                \tdoc: \"docstring here\"\n\
+                                5\n\
+                            end"));
             let out = String::from("fun v(): 5 end");
             assert_eq!(norm, out);
             assert_eq!(*lm, LineMapping { line_ends: vec![9, 9, 11, 14] });
         }
-        // try ``` strings on multi-lines here too
+        {
+            let (norm, lm) = normalize(
+                String::from("fun g():\n\
+                                doc: ```This is a longer docstring.\n\
+                                It takes place over multiple lines.```\n\
+                                0\n\
+                            end"));
+            let out = String::from("fun v(): 0 end");
+            assert_eq!(norm, out);
+            assert_eq!(*lm, LineMapping { line_ends: vec![9, 9, 9, 11, 14] });
+        }
     }
 
     #[test]
@@ -105,15 +151,75 @@ mod normalize_tests {
             assert_eq!(norm, out);
             assert_eq!(*lm, LineMapping { line_ends: vec![6, 12] });
         }
-        // multiline comments
+        {
+            let (norm, lm) = normalize(
+                String::from("n = true #| commented code:\n\
+                                x = 15\n\
+                                y =\"string value\"\n\
+                                |#\n\
+                            m = false"));
+            let out = String::from("v = true v = false");
+            assert_eq!(norm, out);
+            assert_eq!(*lm, LineMapping { line_ends: vec![9, 9, 9, 9, 18] });
+        }
     }
 
     #[test]
-    fn single_line() {
+    fn simple_func() {
         let (norm, lm) = normalize(String::from("fun square(n): n * n end"));
         let out = String::from("fun v(v): v * v end");
-
         assert_eq!(norm, out);
         assert_eq!(*lm, LineMapping { line_ends: vec![out.len().try_into().unwrap()] });
+    }
+
+    #[test]
+    fn keywords_and_otherwise_preserved() {
+        // ensure any other syntactic elements are preserved
+        {
+            let (norm, lm) = normalize(
+                String::from("import tables as T"));
+            let out = String::from("import v as v");
+            assert_eq!(norm, out);
+            assert_eq!(*lm, LineMapping { line_ends: vec![13] });
+        }
+        {
+            let (norm, lm) = normalize(
+                String::from("if (5 * 2) < 10:\n\
+                                    true\n\
+                                else:\n\
+                                    false\n\
+                                end"));
+            let out = String::from("if (5 * 2) < 10: true else: false end");
+            assert_eq!(norm, out);
+            assert_eq!(*lm, LineMapping { line_ends: vec![17, 22, 28, 34, 37] });
+        }
+        {
+            let (norm, lm) = normalize(
+                String::from("examples:\n\
+                                tmp = \"x = 5\"\n\
+                                tmp is tmp\n\
+                            end"));
+            let out = String::from("examples: v = \"x = 5\" v is v end");
+            assert_eq!(norm, out);
+            assert_eq!(*lm, LineMapping { line_ends: vec![10, 22, 29, 32] });
+        }
+    }
+
+    #[test]
+    fn keyword_detection() {
+        // yes, pyret
+        assert!(is_pyret_keyword("check:"));
+        assert!(is_pyret_keyword("is<=>"));
+        assert!(is_pyret_keyword("var"));
+        assert!(is_pyret_keyword("import"));
+        assert!(is_pyret_keyword("lam"));
+        assert!(is_pyret_keyword("raises-other-than"));
+
+        // no, pyret
+        assert!(!is_pyret_keyword("1"));
+        assert!(!is_pyret_keyword("custom-identifier-name"));
+        assert!(!is_pyret_keyword("and-or"));
+        assert!(!is_pyret_keyword("ref-but-this-is-a-name"));
+        assert!(!is_pyret_keyword("let-me-go"));
     }
 }
