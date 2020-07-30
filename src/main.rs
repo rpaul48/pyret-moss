@@ -2,6 +2,8 @@
 // use std::fs;
 // use std::path::Path;
 
+use crate::fingerprint::hash;
+
 mod fingerprint;
 mod normalize;
 
@@ -51,7 +53,7 @@ main()
 
             construct Document struct for this doc, add to Submission
             add all hashes used in this document to the growing set of hashes for this submission
-        
+
         add ref to this submission to hashmap under each fingerprint within this submission (use the set)
 
     important fingerprints = pull all fingerprints with more than 1 associated submission
