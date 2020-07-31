@@ -21,16 +21,21 @@ struct Submission {
 }
 
 fn main() {
-    let program = "fun name-of-fun(x): x * x end";
-    println!("Program: `{}`\nNormalized: `{:?}`", 
+    let program = "fun #| this is the function!!! |# name(x):\n\
+                        \t# neat so this is my function guys fun f(x): print(x) end\n\
+                        \tdoc: \"this is #| hello! |# what my function does!\"\n\
+                        \tblock:\n\
+                            \t\tstr = \"literal value!!\"\n\
+                            \t\tx * x \n\
+                        \tend\n\
+                        \t# this multiples x by itself\n\
+                    end";
+    println!("Program:\n`{}`\n\nNormalized:\n`{:?}`",
         program,
         normalize::normalize(program));
 
-    // println!("Return of match: {:?}", 
-    //     normalize::match_keyword_or_ident("examples-for-my-identifier testing(): end"));
-
-
-
+    // println!("Return of match: {:?}",
+    //     normalize::match_string_literal("```string literal \t\nvalue``` oh neat"));
 
     // ask user for input directory of files
     //println!("Please enter the path to a directory of files:");

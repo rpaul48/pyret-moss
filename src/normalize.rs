@@ -33,13 +33,70 @@ impl NormText {
 // Returns the normalized string & enough info to map parts 
 // of the normalized text to line numbers in the original (LineMapping)
 pub fn normalize(program: &str) -> NormText {    
-    let mut head: &str = &program;      // rest of program to be processed
-    let mut norm = String::from("");    // normalized program text
-    let mut norm_idx = 0;               // next index to write to in norm text
-    let mut line_ends = Vec::new();     // encodes line info (see NormText above)
+    let mut head: &str = &program;          // rest of program to be processed
+    let mut norm = String::from("");        // normalized program text
+    let mut norm_idx = 0;                   // next index to write to in norm text
+    let mut last_ws: Option<i32> = None;    // idx of last whitespace added to norm
+    let mut line_ends = Vec::new();         // encodes line info (see NormText above)
 
     // while haven't seen entire program
     while !head.is_empty() {
+
+        // ------- Types -------
+        // TODO!
+
+        // ------- Whitespace -------
+        if let Some((mat, rest, len)) = match_whitespace(head) {
+            head = rest;    // jump over whitespace
+
+            match last_ws {
+                // if we haven't written past the last ws char, don't duplicate it
+                Some(last) => 
+                    if last != norm_idx - 1 {
+                        norm.push(' ');
+                        last_ws = Some(norm_idx);
+                        norm_idx += 1;
+                    },
+                // otherwise represent the matched whitespace with ' '
+                None => {
+                    norm.push(' ');
+                    last_ws = Some(norm_idx);
+                    norm_idx += 1;
+                },
+            }
+
+            account_for_newlines(mat, norm_idx, &mut line_ends, false);
+            continue;
+        }
+
+        // ------- Docstrings -------
+        if let Some((mat, rest, len)) = match_docstring(head) {
+            head = rest;    // jump over docstring
+            account_for_newlines(mat, norm_idx, &mut line_ends, false);
+            continue;
+        }
+
+        // ------- Comments -------
+        if let Some((mat, rest, len)) = match_comment(head) {
+            head = rest;    // jump over comment
+            account_for_newlines(mat, norm_idx, &mut line_ends, false);
+            continue;
+        }
+
+        // ------- String Literals -------
+        if let Some((mat, rest, len)) = match_string_literal(head) {
+            // account for newlines *before* incrementing norm_idx,
+            // because whitespace is preserved in strings, and indices
+            // for line ends within the literal need to be computed relative
+            // to norm_idx before advancing *past* the string.
+            account_for_newlines(mat, norm_idx, &mut line_ends, true);
+
+            norm.push_str(mat); // write literal to norm
+            norm_idx += len as i32;
+
+            head = rest;    // jump over literal
+            continue;
+        }
 
         // ------- Keywords & Identifiers -------
         if let Some((is_keyw, mat, rest, len)) = match_keyword_or_ident(head) {
@@ -55,7 +112,7 @@ pub fn normalize(program: &str) -> NormText {
             continue;
         }
 
-        // all other matches failed:
+        // ------- Else -------
         norm.push(head.chars().next().unwrap());    // write first char of head to norm
         norm_idx += 1;      // progress next idx to be written to
         head = &head[1..];  // progress head
@@ -188,13 +245,25 @@ fn match_keyword_or_ident(hd: &str) -> Option<(bool, &str, &str, usize)> {
 // - Some((matched, rest, len)) contains matched whitespace, rest of head, match length
 // - None indicates no whitespace could be matched
 fn match_whitespace(hd: &str) -> Option<(&str, &str, usize)> {
-    unimplemented!();
+    lazy_static! {
+        static ref WHITESPACE: Regex = Regex::new(r"^\s+").unwrap();
+    }
+
+    extract_match(hd, &WHITESPACE)
 }
 
 // match a type annotation on the head (starting with ::)
 // - Some((matched, rest, len)) contains matched type, rest of head, match length
 // - None indicates no type could be matched
 fn match_type(hd: &str) -> Option<(&str, &str, usize)> {
+    lazy_static! {
+        static ref SIMPLE_TYPE: Regex = Regex::new(
+            r"^\s+::\s+[_a-zA-Z][-_a-zA-Z0-9<>]*"
+        ).unwrap();
+        static ref COMPLEX_TYPE_BEGIN: Regex = Regex::new(
+            r"^\s+::\s+\("
+        ).unwrap();
+    }
     // look for:
     // :: annot
     // -> annot
@@ -207,21 +276,55 @@ fn match_type(hd: &str) -> Option<(&str, &str, usize)> {
 // - Some((matched, rest, len)) contains matched docstring, rest of head, match length
 // - None indicates no docstring match
 fn match_docstring(hd: &str) -> Option<(&str, &str, usize)> {
-    unimplemented!();
+    lazy_static! {
+        // match docstrings with '', "", and ``` quotes
+        static ref DOC: Regex = Regex::new(
+            r#"^doc:\s*((".*?")|('.*?')|(```(.|\n)*?```))"#
+        ).unwrap();
+    }
+
+    extract_match(hd, &DOC)
 }
 
 // match a comment on the head
 // - Some((matched, rest, len)) contains matched comment, rest of head, match length
 // - None indicates no comment matched
 fn match_comment(hd: &str) -> Option<(&str, &str, usize)> {
-    unimplemented!();
+    lazy_static! {
+        // match single- and multi-line comments
+        static ref COMMENT: Regex = Regex::new(
+            r#"^((#\|(.|\n)*?\|#)|(#.*))"#
+        ).unwrap();
+    }
+
+    extract_match(hd, &COMMENT)
 }
 
-// read over a slice & add idx to le (line ends) for every newline encountered
-fn account_for_newlines(slice: &str, idx: i32, le: &mut Vec<i32>) {
-    unimplemented!();
+// match a string literal on the head (single, double, or triple quoted)
+// - Some((matched, rest, len)) contains matched string, rest of head, match length
+// - None indicates no comment matched
+fn match_string_literal(hd: &str) -> Option<(&str, &str, usize)> {
+    lazy_static! {
+        // match all kinds of quoted strings
+        static ref STRING_LIT: Regex = Regex::new(
+            r#"^((".*?")|('.*?')|(```(.|\n)*?```))"#
+        ).unwrap();
+    }
+
+    extract_match(hd, &STRING_LIT)
 }
 
+// read over a slice & add the index of the next normalized text char
+// after each newline to the line ends (le) vector.
+// if literal is true, next index will be index right after \n, otherwise
+// idx parameter is used.
+fn account_for_newlines(slice: &str, idx: i32, le: &mut Vec<i32>, literal: bool) {
+    for (i, c) in slice.chars().enumerate() {
+        if c == '\n' {
+            le.push(if literal { idx + ((i + 1) as i32) } else { idx });
+        }
+    }
+}
 
 #[cfg(test)]
 mod normalize_tests {
@@ -241,11 +344,11 @@ mod normalize_tests {
         test_norm(
             "  \n \na = 1\n\t\t ",
             " v = 1 ",
-            vec![1, 1, 6, 7]);
+            vec![1, 1, 7, 7]);
         test_norm(
             "check:\n\n\t1 is \n2\nend",
             "check: 1 is 2 end",
-            vec![6, 6, 11, 13, 16]);
+            vec![7, 7, 12, 14, 17]);
     }
 
     #[test]
@@ -323,6 +426,22 @@ mod normalize_tests {
             "fun square(n): n * n end",
             "fun v(v): v * v end",
             vec![19]);
+    }
+
+    #[test]
+    fn preserves_string_literals() {
+        test_norm(
+            "my-literal = \"This is a string value\"",
+            "v = \"This is a string value\"",
+            vec![28]);
+        test_norm(
+            "x = 'single-quoted string; fun f(): end'",
+            "v = 'single-quoted string; fun f(): end'",
+            vec![40]);
+        test_norm(
+            "triple = ```here's a\ntriple-quote```",
+            "v = ```here's a\ntriple-quote```",
+            vec![16, 31]);
     }
 
     #[test]
