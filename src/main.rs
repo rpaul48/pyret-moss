@@ -21,6 +21,17 @@ struct Submission {
 }
 
 fn main() {
+    let program = "fun name-of-fun(x): x * x end";
+    println!("Program: `{}`\nNormalized: `{:?}`", 
+        program,
+        normalize::normalize(program));
+
+    // println!("Return of match: {:?}", 
+    //     normalize::match_keyword_or_ident("examples-for-my-identifier testing(): end"));
+
+
+
+
     // ask user for input directory of files
     //println!("Please enter the path to a directory of files:");
 
