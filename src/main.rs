@@ -5,9 +5,11 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
 
+mod error;
 mod fingerprint;
 mod normalize;
 
+use error::err;
 use fingerprint::Fingerprint;
 
 struct Document {
@@ -21,27 +23,6 @@ struct Submission {
 }
 
 fn main() {
-    let program = "fun #| this is the function!!! |# name  \n\
-                        \t<A,B,C,D>(x :: Number, y :: (String -> String)):\n\
-                        \t# this is my function guys fun f(x): print(x) end\n\
-                        \tdoc: \"this is #| hello! |# what my function does\"\n\
-                        \tblock:\n\
-                            \t\tstr = \"literal value!!\"\n\
-                            \t\twhat-is-this :: (Number -> Number) = \n\
-                            \t\t\tlam(n :: Number): n * n end\n\
-                            \t\tx * x \n\
-                        \tend\n\
-                        \t# this multiples x by itself\n\
-                    end";
-
-    println!("Program:\n`{}`\n\nNormalized:\n`{:?}`",
-        program,
-        normalize::normalize(program));
-
-
-
-
-
     // ask user for input directory of files
     //println!("Please enter the path to a directory of files:");
 

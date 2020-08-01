@@ -34,9 +34,9 @@ impl NormText {
     }
 }
 
-// what to change all identifiers/whitespace to
-// Note: unit tests may break if these are altered
-// (written assuming 'v' and ' ')
+// replacement for all identifier names
+// Note: unit tests may break if this is altered
+// (written assuming 'v')
 const NORM_IDENTIFIER: char = 'v';
 
 // Remove/normalize any features from a program's text that 
@@ -127,10 +127,7 @@ pub fn normalize(program: &str) -> NormText {
     line_ends.push(norm.chars().count() as i32);
 
     // return normalized text in struct for line number computations
-    NormText {
-        value: norm,
-        line_ends: line_ends
-    }
+    NormText { value: norm, line_ends: line_ends }
 }
 
 // A Match indicates a prefix of some string that represents some feature
@@ -284,6 +281,7 @@ fn match_string_literal(hd: &str) -> Option<Match> {
 fn match_keyword_or_ident(hd: &str) -> Option<(bool, Match)> {
     lazy_static! {
         // gleaned from pyret-lang/src/scripts/tokenize.js
+        // ordered length descending so longest match is preferred
         static ref KEYWORD: Regex = Regex::new(
             "^(raises-other-than|raises-satisfies|raises-violates|does-not-raise\
                 |provide-types|otherwise:|load-table|is-roughly|descending|transform\
@@ -326,9 +324,9 @@ fn match_keyword_or_ident(hd: &str) -> Option<(bool, Match)> {
     }
 }
 
-// read over a slice & add the index of the next normalized text char
+// Read over a slice & add the index of the next normalized text char
 // after each newline to the line ends (le) vector.
-// if literal is true, next index will be index right after \n, otherwise
+// If preserving newlines, next index will be index right after \n, otherwise
 // idx parameter is used.
 fn account_for_newlines(slice: &str, idx: i32, le: &mut Vec<i32>, preserve_newlines: bool) {
     for (i, c) in slice.chars().enumerate() {
@@ -385,6 +383,14 @@ mod normalize_tests {
         let norm = normalize(input);
         assert_eq!(norm.value, String::from(out_val));
         assert_eq!(norm.line_ends, out_line_ends);
+    }
+
+    #[test]
+    fn empty_document() {
+        test_norm(
+            "",
+            "",
+            vec![0]);
     }
 
     #[test]
