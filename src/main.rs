@@ -5,9 +5,14 @@
 use crate::fingerprint::hash;
 use crate::fingerprint::rolling_hash;
 
+#[macro_use] extern crate lazy_static;
+extern crate regex;
+
+mod error;
 mod fingerprint;
 mod normalize;
 
+use error::err;
 use fingerprint::Fingerprint;
 
 struct Submission {
@@ -64,7 +69,7 @@ fn main() {
 /*
 
 main()
-
+ 
     hashbrown: (i32 -> &Submission)
 
     for each submission directory
