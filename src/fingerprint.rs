@@ -12,6 +12,9 @@ static w: i32 = 4;
 // the (preferably prime) base value used by the hash function
 static base: i64 = 5;
 
+// whether to transform all characters to lowercase
+static all_to_lower: bool = true;
+
 // A Fingerprint contains a hash of a k-gram within a document,
 // and the range of line numbers to which that k-gram corresponds, inclusive
 pub struct Fingerprint {
@@ -42,6 +45,8 @@ pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
         let mut hashed_kgrams = rolling_hash(kgrams);
 
         // construct windows of hashes of length w
+
+
         // from windows, use winnowing to select fingerprints
         // pair fingerprints with line number
     }
@@ -62,8 +67,15 @@ pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
         //let cur_str: &str = kgrams.pop().unwrap();
         let cur_str: &str = kgrams[0];
         kgrams = kgrams[1..].to_vec();
-        let cur_first_char: char = cur_str.chars().next().unwrap();
-        let cur_last_char: char = cur_str.chars().last().unwrap();
+
+        let mut cur_first_char: char = cur_str.chars().next().unwrap();
+        let mut cur_last_char: char = cur_str.chars().last().unwrap();
+
+        // ensure both characters are lowercase if necessary
+        if all_to_lower {
+            cur_first_char = cur_first_char.to_lowercase().next().unwrap();
+            cur_last_char = cur_last_char.to_lowercase().next().unwrap();
+        }
 
         match prev_first_char {
             // if the current iteration is the first string being hashed
@@ -95,7 +107,14 @@ pub fn hash(str: &str) -> i64 {
         0
     } else {
         let len = str.chars().count() as u32;
-        let first = str.chars().next().unwrap() as i64;
+
+        let mut first;
+        if all_to_lower {
+            first = str.chars().next().unwrap().to_lowercase().next().unwrap() as i64;
+        } else {
+            first = str.chars().next().unwrap() as i64;
+        }
+
         let rest = &str[1..];
 
         // computes a hash value corresponding to the first character of the input string
@@ -114,7 +133,6 @@ mod fingerprint_tests {
         assert_eq!(hash("a"), 97, "tests that the hash of a single character string is a code point");
         assert_eq!(hash("abcdefg"), hash("abcdefg"), "equal outputs for equal inputs");
 
-        assert_ne!(hash("a"), hash("A"), "hash is case sensitive");
         assert_ne!(hash("abc"), hash("bac"), "different hash for rearranged characters");
         assert_ne!(hash("ab"), hash("a b"), "hashes spaces");
     }
