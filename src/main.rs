@@ -21,6 +21,7 @@ struct Document {
 }
 
 fn main() {
+    /*
     println!("using naive hash");
     println!("a%Hd: {}", hash("a%Hd"));
     println!("%Hdd: {}", hash("%Hdd"));
@@ -34,10 +35,13 @@ fn main() {
 
     println!("a%Hd, %Hdd, Hdd%: {:?}", rolling_hash(abcde_3grams));
 
-
     println!("------");
     println!("{}", hash(" "));
     println!("{}", hash(""));
+    let mut vect: Vec<&str> = Vec::new();
+    println!("{:?}", rolling_hash(vect)); */
+
+    
 
     // ask user for input directory of files
     //println!("Please enter the path to a directory of files:");

@@ -23,7 +23,7 @@ pub struct Fingerprint {
 pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
 
     let doc = nt.value;
-    let len = doc.len() as i32;
+    let len = doc.chars().count() as i32;
 
     // only attempt to fingerprint if the processed string is greater than the noise threshold
     if len > k {
@@ -94,7 +94,7 @@ pub fn hash(str: &str) -> i64 {
     if str.is_empty() {
         0
     } else {
-        let len = str.len() as u32;
+        let len = str.chars().count() as u32;
         let first = str.chars().next().unwrap() as i64;
         let rest = &str[1..];
 
@@ -108,7 +108,7 @@ pub fn hash(str: &str) -> i64 {
 mod fingerprint_tests {
     use super::*;
     #[test]
-    // tests the hash function for basic attributes
+    // tests the hash() function for basic attributes
     fn basic_hash_tests() {
         assert_eq!(hash(""), 0, "tests the empty string case");
         assert_eq!(hash("a"), 97, "tests that the hash of a single character string is a code point");
@@ -117,5 +117,30 @@ mod fingerprint_tests {
         assert_ne!(hash("a"), hash("A"), "hash is case sensitive");
         assert_ne!(hash("abc"), hash("bac"), "different hash for rearranged characters");
         assert_ne!(hash("ab"), hash("a b"), "hashes spaces");
+    }
+
+    #[test]
+    // tests the rolling_hash() function for basic attributes
+    fn basic_rolling_hash_tests() {
+        let mut empty: Vec<&str> = Vec::new();
+        let mut one_char: Vec<&str> = vec!["a"];
+        let mut three_kgrams: Vec<&str> = vec!["abcd", "bcde", "cdef"];
+        let mut three_kgrams_copy: Vec<&str> = vec!["abcd", "bcde", "cdef"];
+        let three_kgrams_hashed = rolling_hash(three_kgrams);
+
+        assert_eq!(rolling_hash(empty).len(), 0, "outputs an empty vector for an empty input vector");
+        assert_eq!(rolling_hash(one_char)[0], 97, "hash of a single character is a code point");
+        assert_eq!(three_kgrams_hashed.len(), 3, "outputs three hash values");
+        assert_eq!(rolling_hash(three_kgrams_copy), three_kgrams_hashed, "duplicate vectors");
+    }
+
+    #[test]
+    // tests that the rolling hash produces the same hash values as the naive hash
+    fn hash_vs_rolling_hash() {
+        let mut three_kgrams: Vec<&str> = vec!["abcd", "bcde", "cdef"];
+        let mut special_chars: Vec<&str> = vec!["$ 1:", " 1:,", "1:,a", ":,aA"];
+
+        assert_eq!(rolling_hash(three_kgrams), vec![hash("abcd"), hash("bcde"), hash("cdef")]);
+        assert_eq!(rolling_hash(special_chars), vec![hash("$ 1:"), hash(" 1:,"), hash("1:,a"), hash(":,aA")]);
     }
 }
