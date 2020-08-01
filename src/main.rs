@@ -3,7 +3,7 @@
 // use std::path::Path;
 
 use crate::fingerprint::hash;
-use crate::fingerprint::roll_hash;
+use crate::fingerprint::rolling_hash;
 
 mod fingerprint;
 mod normalize;
@@ -22,17 +22,22 @@ struct Document {
 
 fn main() {
     println!("using naive hash");
-    println!("abcd: {}", hash("abcd"));
-    println!("bcde: {}", hash("bcde"));
-    println!("cdef: {}", hash("cdef"));
+    println!("a%Hd: {}", hash("a%Hd"));
+    println!("%Hdd: {}", hash("%Hdd"));
+    println!("Hdd%: {}", hash("Hdd%"));
 
     println!("using rolling hash");
     let mut abcde_3grams: Vec<&str> = Vec::new();
-    abcde_3grams.push("abcd");
-    abcde_3grams.push("bcde");
-    abcde_3grams.push("cdef");
+    abcde_3grams.push("a%Hd");
+    abcde_3grams.push("%Hdd");
+    abcde_3grams.push("Hdd%");
 
-    println!("abcd, bcde, cdef: {:?}", roll_hash(abcde_3grams));
+    println!("a%Hd, %Hdd, Hdd%: {:?}", rolling_hash(abcde_3grams));
+
+
+    println!("------");
+    println!("{}", hash(" "));
+    println!("{}", hash(""));
 
     // ask user for input directory of files
     //println!("Please enter the path to a directory of files:");
