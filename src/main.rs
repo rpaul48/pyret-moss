@@ -15,36 +15,39 @@ mod normalize;
 use error::err;
 use fingerprint::Fingerprint;
 
-struct Submission {
+// represents a student submission
+pub struct Sub {
     path: String,
-    documents: Vec<Document>
+    documents: Vec<Doc>
 }
 
-struct Document {
+// represents a file within a Sub
+pub struct Doc {
     path: String,
-    fingerprints: Vec<Fingerprint>
+    fingerprints: Option<Vec<Fingerprint>>
 }
+
+/*
+    User-available parameters:
+        - ignore boilerplate code (indicate a dir)
+        - single-dir mode: submissions are assumed to be each 1 doc
+        - k: noise threshold
+        - t: guarantee threshold
+        - result location: where the program's result summary will be written (default stdout)
+        - limit max number of pairs of subs to report on in output
+*/
+
+use fnv::FnvHashMap;
 
 fn main() {
-    /*
-    println!("using naive hash");
-    println!("a%Hd: {}", hash("a%Hd"));
-    println!("%Hdd: {}", hash("%Hdd"));
-    println!("Hdd%: {}", hash("Hdd%"));
 
-    println!("using rolling hash");
-    let mut abcde_3grams: Vec<&str> = Vec::new();
-    abcde_3grams.push("a%Hd");
-    abcde_3grams.push("%Hdd");
-    abcde_3grams.push("Hdd%");
+    let mut map = FnvHashMap::default();
 
-    println!("a%Hd, %Hdd, Hdd%: {:?}", rolling_hash(abcde_3grams));
+    map.insert(157, "testing value");
+    map.insert(21, "neat");
 
-    println!("------");
-    println!("{}", hash(" "));
-    println!("{}", hash(""));
-    let mut vect: Vec<&str> = Vec::new();
-    println!("{:?}", rolling_hash(vect)); */
+    println!("Out: {:?}", map.get(&157));
+    println!("Out: {:?}", map.get(&21));
 
     
 
