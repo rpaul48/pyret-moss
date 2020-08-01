@@ -146,7 +146,7 @@ fn extract_match<'a>(hd: &'a str, re: &Regex) -> Option<Match<'a>> {
         Some(mat) => {
             let e = mat.end();
             // match, rest, and length of match
-            Some((&hd[0..e], &hd[e..], e))
+            Some((&hd[..e], &hd[e..], e))
         },
         None => None,
     }
@@ -279,7 +279,8 @@ fn match_string_literal(hd: &str) -> Option<Match> {
     extract_match(hd, &STRING_LIT)
 }
 
-// extract longest identifier/keyword prefix if any, or None
+// extract longest identifier/keyword prefix if any, or None.
+// boolean indicates true if a keyword was matched, false if identifier
 fn match_keyword_or_ident(hd: &str) -> Option<(bool, Match)> {
     lazy_static! {
         // gleaned from pyret-lang/src/scripts/tokenize.js
@@ -342,15 +343,48 @@ mod normalize_tests {
     use super::*;
     use std::convert::TryInto;
 
+    #[test]
+    fn line_number_info_preserved() {
+        {
+            let norm = normalize(
+                "fun f(x):\n\
+                    \tblock:\n\
+                    \t\t5 * 10\n\
+                    \t\tx + 10\n\
+                    \t\t7 * x\n\
+                    \tend\n\
+                end");
+            // norm: "funv(v):block:5*10v+107*vendend"
+            assert_eq!(norm.line_number(0), 1);
+            assert_eq!(norm.line_number(11), 2);
+            assert_eq!(norm.line_number(14), 3);
+            assert_eq!(norm.line_number(21), 4);
+            assert_eq!(norm.line_number(23), 5);
+            assert_eq!(norm.line_number(25), 6);
+            assert_eq!(norm.line_number(30), 7);
+        }
+        {
+            let norm = normalize(
+                "x = ~100.051\n\
+                y = ```long string literal over\n\
+                        multiple lines```\n\
+                lam(n): 5 * n end");
+            // norm: "v=~100.051v=```long string literal over\nmultiple lines```lam(v):5*vend"
+            assert_eq!(norm.line_number(9), 1);
+            assert_eq!(norm.line_number(10), 2);
+            assert_eq!(norm.line_number(39), 2);
+            assert_eq!(norm.line_number(40), 3);
+            assert_eq!(norm.line_number(57), 4);
+            assert_eq!(norm.line_number(62), 4);
+        }
+    }
+
     // generic testing form for normalize()
     // calls normalize() on input string & asserts output text value & line ends
     fn test_norm(input: &str, out_val: &str, out_line_ends: Vec<i32>) {
         let norm = normalize(input);
         assert_eq!(norm.value, String::from(out_val));
-        // assert_eq!(norm.line_ends, out_line_ends);
-
-        // ^^^ TEMP DEBUG -- NEED TO TEST LINE ENDS TOO
-
+        assert_eq!(norm.line_ends, out_line_ends);
     }
 
     #[test]
@@ -358,11 +392,11 @@ mod normalize_tests {
         test_norm(
             "  \n \na = 1\n\t\t ",
             "v=1",
-            vec![1, 1, 7, 7]);
+            vec![0, 0, 3, 3]);
         test_norm(
             "check:\n\n\t1 is \n2\nend",
             "check:1is2end",
-            vec![7, 7, 12, 14, 17]);
+            vec![6, 6, 9, 10, 13]);
     }
 
     #[test]
@@ -370,7 +404,7 @@ mod normalize_tests {
         test_norm(
             "name-1 = 7\nsecond_name = name-1 * name-1",
             "v=7v=v*v",
-            vec![6, 15]);
+            vec![3, 8]);
     }
 
     #[test]
@@ -378,11 +412,11 @@ mod normalize_tests {
         test_norm(
             "x :: Number = 10\ny :: Boolean = true",
             "v=10v=true",
-            vec![7, 15]);
+            vec![4, 10]);
         test_norm(
             "fun f(a :: Custom, b :: List)\n-> String:\n",
             "funv(v,v):",
-            vec![11, 13, 13]);
+            vec![9, 10, 10]);
         test_norm(
             "param :: List<List<InnerType>>",
             "v",
@@ -392,27 +426,27 @@ mod normalize_tests {
             (List<String> -> List<List<Number>>)) = 10",
 
             "v=10",
-            vec![6]);
+            vec![4]);
         test_norm(
             "fun f<A, B, C>(x, y)",
             "funv(v,v)",
-            vec![11]);
+            vec![9]);
         test_norm(
             "fun do-it<Type,XYZ,_>(x :: Number) -> (String -> String):",
             "funv(v):",
-            vec![9]);
+            vec![8]);
         test_norm(
             "fun f \n <A, B>():",
             "funv():",
-            vec![5, 8]);
+            vec![4, 7]);
         test_norm(
             "fun newlines-everywhere<X,Y,\n\nA, Z>(param\n::\nList<X>)\n\n ->\n Y\n:",
             "funv(v):",
-            vec![5, 5, 7, 7, 8, 8, 8, 8, 9]);
+            vec![4, 4, 6, 6, 7, 7, 7, 7, 8]);
         test_norm(
             "(id :: Number\n\n, id2)",
             "(v,v)",
-            vec![2, 2, 6]);
+            vec![2, 2, 5]);
     }
 
     #[test]
@@ -424,7 +458,7 @@ mod normalize_tests {
             end",
 
             "funv():5end",
-            vec![9, 9, 11, 14]);
+            vec![7, 7, 8, 11]);
 
         test_norm(
             "fun g():\n\
@@ -434,7 +468,7 @@ mod normalize_tests {
             end",
 
             "funv():0end",
-            vec![9, 9, 9, 11, 14]);
+            vec![7, 7, 7, 8, 11]);
     }
 
     #[test]
@@ -442,7 +476,7 @@ mod normalize_tests {
         test_norm(
             "x = 1 # x is 1\ny = 2 # the value of y",
             "v=1v=2",
-            vec![6, 12]);
+            vec![3, 6]);
         test_norm(
             "n = true #| commented code:\n\
             x = 15\n\
@@ -451,7 +485,7 @@ mod normalize_tests {
             m = false",
 
             "v=truev=false",
-            vec![9, 9, 9, 9, 18]);
+            vec![6, 6, 6, 6, 13]);
     }
 
     #[test]
@@ -459,7 +493,7 @@ mod normalize_tests {
         test_norm(
             "fun square(n): n * n end",
             "funv(v):v*vend",
-            vec![19]);
+            vec![14]);
     }
 
     #[test]
@@ -467,15 +501,15 @@ mod normalize_tests {
         test_norm(
             "my-literal = \"This is a string value\"",
             "v=\"This is a string value\"",
-            vec![28]);
+            vec![26]);
         test_norm(
             "x = 'single-quoted string; fun f(): end'",
             "v='single-quoted string; fun f(): end'",
-            vec![40]);
+            vec![38]);
         test_norm(
             "triple = ```here's a\ntriple-quote```",
             "v=```here's a\ntriple-quote```",
-            vec![16, 31]);
+            vec![14, 29]);
     }
 
     #[test]
@@ -484,7 +518,7 @@ mod normalize_tests {
         test_norm(
             "import tables as T",
             "importvasv",
-            vec![13]);
+            vec![10]);
         test_norm(
             "if (5 * 2) < 10:\n\
                 true\n\
@@ -493,7 +527,7 @@ mod normalize_tests {
             end",
 
             "if(5*2)<10:trueelse:falseend",
-            vec![17, 22, 28, 34, 37]);
+            vec![11, 15, 20, 25, 28]);
         test_norm(
             "examples:\n\
                 tmp = \"x = 5\"\n\
@@ -501,7 +535,7 @@ mod normalize_tests {
             end",
 
             "examples:v=\"x = 5\"visvend",
-            vec![10, 22, 29, 32]);
+            vec![9, 18, 22, 25]);
     }
 
 }
