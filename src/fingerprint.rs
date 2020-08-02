@@ -27,8 +27,12 @@ pub struct Fingerprint {
 // computes the fingerprints of a normalized document, using robust winnowing
 pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
 
-    let doc = nt.value;
-    let len = doc.chars().count() as i32;
+    // the text of the NormText being loaded in
+    let doc: &String = &nt.value;
+    let len: i32 = doc.chars().count() as i32;
+
+    // the output, to be populated
+    let mut fingerprints: Vec<Fingerprint> = Vec::new();
 
     // only attempt to fingerprint if the processed string is greater than the noise threshold
     if len > k {
@@ -47,20 +51,21 @@ pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
         let mut hashed_kgrams = rolling_hash(kgrams);
 
         // checks windows of hashes of length w, uses robust winnowing to select fingerprints
+        let mut fingerprint_tuples: Vec<(i64, usize)> = robust_winnow(hashed_kgrams);
 
-        /*
-        let mut window_start: usize = 0;
-        let mut window_end: usize = w as usize;
-        let max_window_index: i32 = hashed_kgrams.len() as i32; */
-
-
-
-
-        // pair fingerprints with line number
-        let mut fingerprints: Vec<Fingerprint> = Vec::new();
+        // combine fingerprint tuples with original line numbers, make Fingerprint structs
+        for tuple in fingerprint_tuples.iter() {
+            let hash: i64 = tuple.0;
+            let start_line: i32 = nt.line_number(tuple.1 as i32);
+            let end_line: i32 = nt.line_number(tuple.1 as i32 + k - 1);
+            let fingerprint: Fingerprint = Fingerprint {
+                hash: hash,
+                lines: (start_line, end_line)
+            };
+            fingerprints.push(fingerprint);
+        }
     }
-
-    unimplemented!();
+    fingerprints
 }
 
 // the robust winnowing algorithm, which takes in a Vec<i64> of hashes and returns the fingerprints,
