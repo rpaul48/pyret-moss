@@ -19,12 +19,13 @@ static ALL_TO_LOWER: bool = true;
 
 // A Fingerprint contains a hash of a k-gram within a document,
 // and the range of line numbers to which that k-gram corresponds, inclusive
+#[derive(Debug)]
 pub struct Fingerprint {
     hash: i64,
     lines: (i32, i32)
 }
 
-// computes the fingerprints of a normalized document, using robust winnowing
+// computes the fingerprints of a normalized document using robust winnowing
 pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
 
     // the text of the NormText being loaded in
@@ -41,7 +42,7 @@ pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
         let mut start: usize = 0;
         let mut end: usize = k as usize;
 
-        while (end - 1) <= len as usize {
+        while end <= len as usize {
             let next_kgram = &doc[start..end];
             kgrams.push(next_kgram);
             start += 1; end += 1;
@@ -83,7 +84,7 @@ pub fn robust_winnow(hashed_kgrams: Vec<i64>) -> Vec<(i64, usize)> {
     let mut prev_fingerprint: Option<(i64, usize)> = None;
 
     // check all windows of size w in the hashed kgrams
-    while (window_end - 1) <= max_window_index {
+    while window_end <= max_window_index {
         let window = &hashed_kgrams[window_start..window_end];
 
         // find the minimum hash(es) of the current window
