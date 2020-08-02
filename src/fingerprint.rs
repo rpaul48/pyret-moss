@@ -3,17 +3,19 @@
 use crate::normalize::NormText;
 
 // the noise threshold; matches shorter than it are not considered
-static k: i32 = 4;
+static k: i32 = 5;
 
-// the window size, w = t - k + 1, where t is the guarantee threshold,
-// or the minimum substring length at which matches are guaranteed to be caught
-static w: i32 = 4;
+// the guarantee threshold, or the min substring length at which matches are guaranteed to be caught
+static t: i32 = 8;
+
+// the window size
+static w: i32 = t - k + 1;
 
 // the (preferably prime) base value used by the hash function
-static base: i64 = 5;
+static base: i64 = 31;
 
 // whether to transform all characters to lowercase
-static all_to_lower: bool = true;
+static ALL_TO_LOWER: bool = true;
 
 // A Fingerprint contains a hash of a k-gram within a document,
 // and the range of line numbers to which that k-gram corresponds, inclusive
@@ -32,11 +34,11 @@ pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
     if len > k {
         // construct k-grams, a Vec<str>
         let mut kgrams: Vec<&str> = Vec::new();
-        let mut start: i32 = 0;
-        let mut end: i32 = k;
+        let mut start: usize = 0;
+        let mut end: usize = k as usize;
 
-        while (end - 1) <= len {
-            let next_kgram = &doc[start as usize..end as usize];
+        while (end - 1) <= len as usize {
+            let next_kgram = &doc[start..end];
             kgrams.push(next_kgram);
             start += 1; end += 1;
         }
@@ -44,14 +46,79 @@ pub fn fingerprint(nt: NormText) -> Vec<Fingerprint> {
         // rolling hash each k-gram, constructing a vector of i32s
         let mut hashed_kgrams = rolling_hash(kgrams);
 
-        // construct windows of hashes of length w
+        // checks windows of hashes of length w, uses robust winnowing to select fingerprints
+
+        /*
+        let mut window_start: usize = 0;
+        let mut window_end: usize = w as usize;
+        let max_window_index: i32 = hashed_kgrams.len() as i32; */
 
 
-        // from windows, use winnowing to select fingerprints
+
+
         // pair fingerprints with line number
+        let mut fingerprints: Vec<Fingerprint> = Vec::new();
     }
 
     unimplemented!();
+}
+
+// the robust winnowing algorithm, which takes in a Vec<i64> of hashes and returns the fingerprints,
+// or a Vec<(i64, usize)>, which represents a subset of the input hashes paired with their index
+// In each window select the minimum hash value. If possible break ties by selecting
+//the same hash as the window one position to the left. If not, select the rightmost minimal hash.
+// Save all selected hashes as the fingerprints of the document.
+pub fn robust_winnow(hashed_kgrams: Vec<i64>) -> Vec<(i64, usize)> {
+
+    let max_window_index: usize = hashed_kgrams.len() as usize;
+    let mut window_start: usize = 0;
+    let mut window_end: usize = w as usize;
+
+    let mut fingerprint_tuples: Vec<(i64, usize)> = Vec::new();
+    let mut prev_fingerprint: Option<(i64, usize)> = None;
+
+    // check all windows of size w in the hashed kgrams
+    while (window_end - 1) <= max_window_index {
+        let window = &hashed_kgrams[window_start..window_end];
+
+        // find the minimum hash(es) of the current window
+        let mut cur_mins: Vec<(i64, usize)> = Vec::new();
+        let mut cur_window_index_counter: usize = 0;
+
+        for hash in window.iter() {
+            let index: usize = window_start + cur_window_index_counter;
+            let potential_fingerprint: (i64, usize) = (*hash, index);
+
+            if cur_mins.is_empty() {
+                cur_mins.push(potential_fingerprint);
+            } else if hash < &cur_mins[0].0 {
+                cur_mins = vec![potential_fingerprint]
+            } else if hash == &cur_mins[0].0 {
+                cur_mins.push(potential_fingerprint);
+            }
+            cur_window_index_counter += 1;
+        }
+
+        // compare cur_mins with prev_fingerprint to determine whether to update fingerprint_tuples
+        match prev_fingerprint {
+            // if no fingerprints have been identified Pyret
+            None => {
+                let next_fingerprint_tuple: (i64, usize) = *cur_mins.last().unwrap();
+                fingerprint_tuples.push(next_fingerprint_tuple);
+                prev_fingerprint = Some(next_fingerprint_tuple);
+            }
+            Some(fp) => {
+                // if none of cur_mins is the previous fingerprint, select the rightmost hash
+                if !cur_mins.contains(&fp) {
+                    let next_fingerprint_tuple: (i64, usize) = *cur_mins.last().unwrap();
+                    fingerprint_tuples.push(next_fingerprint_tuple);
+                    prev_fingerprint = Some(next_fingerprint_tuple);
+                }
+            }
+        }
+        window_start += 1; window_end += 1;
+    }
+    fingerprint_tuples
 }
 
 // a rolling hash function for a vector of strings
@@ -72,7 +139,7 @@ pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
         let mut cur_last_char: char = cur_str.chars().last().unwrap();
 
         // ensure both characters are lowercase if necessary
-        if all_to_lower {
+        if ALL_TO_LOWER {
             cur_first_char = cur_first_char.to_lowercase().next().unwrap();
             cur_last_char = cur_last_char.to_lowercase().next().unwrap();
         }
@@ -86,8 +153,9 @@ pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
             // if at least one string has already been hashed
             Some(c) => {
                 // calculates the hash of the current string using the previous hash
+                let str_len = cur_str.chars().count() as u32;
                 let prev_hash: &i64 = output.last().unwrap();
-                let prev_first_char_component = (c as i64 * base.pow((k - 1) as u32));
+                let prev_first_char_component = (c as i64 * base.pow((str_len - 1) as u32));
                 let hash: i64 = ((prev_hash - prev_first_char_component) * base) + cur_last_char as i64;
 
                 // appends the hash of the current string to the output vector
@@ -109,7 +177,7 @@ pub fn hash(str: &str) -> i64 {
         let len = str.chars().count() as u32;
 
         let mut first;
-        if all_to_lower {
+        if ALL_TO_LOWER {
             first = str.chars().next().unwrap().to_lowercase().next().unwrap() as i64;
         } else {
             first = str.chars().next().unwrap() as i64;
@@ -155,10 +223,10 @@ mod fingerprint_tests {
     #[test]
     // tests that the rolling hash produces the same hash values as the naive hash
     fn hash_vs_rolling_hash() {
-        let mut three_kgrams: Vec<&str> = vec!["abcd", "bcde", "cdef"];
+        let mut three_kgrams: Vec<&str> = vec!["abcde", "bcdef", "cdefg"];
         let mut special_chars: Vec<&str> = vec!["$ 1:", " 1:,", "1:,a", ":,aA"];
 
-        assert_eq!(rolling_hash(three_kgrams), vec![hash("abcd"), hash("bcde"), hash("cdef")]);
+        assert_eq!(rolling_hash(three_kgrams), vec![hash("abcde"), hash("bcdef"), hash("cdefg")]);
         assert_eq!(rolling_hash(special_chars), vec![hash("$ 1:"), hash(" 1:,"), hash("1:,a"), hash(":,aA")]);
     }
 }
