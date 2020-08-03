@@ -19,10 +19,11 @@ mod error;
 
 use phase_i::make_ignore_set;
 use std::path::Path;
+use crate::fingerprint::Fingerprint;
 
 fn main() {
     match make_ignore_set(&Path::new("./test-dirs/ignore")) {
-        Ok(v) => println!("{:?}", v),
+        Ok(v) => println!("{:?}", v.into_iter().collect::<Vec<i64>>()),
         Err(e) => panic!("Error: {:?}", e),
     };
 

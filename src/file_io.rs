@@ -10,16 +10,25 @@ use crate::fingerprint::Fingerprint;
 // Depending on whether input submissions are directories or
 // indiv. files, the dir_name field will be Some or None
 pub struct Sub<'a> {
-    dir_name: Option<&'a Path>,
-    documents: Vec<Doc<'a>>
+    pub dir_name: Option<&'a Path>,
+    pub documents: Vec<Doc<'a>>
 }
 
 // Doc represents a file within a Sub.
 // Docs are initialized before their fingerprints are computed,
 // so None for fingerprints indicates they have not yet been computed.
-pub struct Doc<'a> {
-    file_name: &'a Path,
-    fingerprints: Option<Vec<Fingerprint>>
+// pub struct Doc<'a> {
+//     pub file_name: &'a Path,
+//     pub mut fingerprints: Option<Vec<Fingerprint>>
+// }
+
+// Doc represents a file within a submission.
+// Docs are initialized as Unprocessed (contents have not yet been
+// read), and become Processed once they have been fingerprinted
+#[derive(Debug)]
+pub enum Doc<'a> {
+    Unprocessed(&'a Path),
+    Processed(&'a Path, Vec<Fingerprint>)
 }
 
 // construct a vector of PathBufs to all files in a given directory 
@@ -51,7 +60,7 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     match paths_in_dir(dir, is_arr) {
         Ok(paths) => paths,
         Err(e) => {
-            println!("Error: Failed to read .arr files in `{}`", dir.display());
+            eprintln!("Error: Failed to read .arr files in `{}`", dir.display());
             process::exit(1);
         },
     }
