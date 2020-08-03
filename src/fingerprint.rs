@@ -18,8 +18,8 @@ static all_to_lower: bool = true;
 // A Fingerprint contains a hash of a k-gram within a document,
 // and the range of line numbers to which that k-gram corresponds, inclusive
 pub struct Fingerprint {
-    hash: i64,
-    lines: (i32, i32)
+    pub hash: i64,
+    pub lines: (i32, i32)
 }
 
 // computes the fingerprints of a normalized document, using robust winnowing
