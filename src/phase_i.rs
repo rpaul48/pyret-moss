@@ -16,16 +16,12 @@ use crate::normalize;
 // reading/normalizing/fingerprinting the given files 
 pub fn make_ignore_set(ignore_dir: &Path) -> io::Result<HashSet<i64>> {
     let ignore_paths = file_io::arr_files_in_dir(ignore_dir);
-    let ignore_set = HashSet::new();
+    let mut ignore_set = HashSet::new();
 
     for path in ignore_paths.iter() {
-        println!("Ignoring: {:?}", path.display());
-
         let mut file = File::open(path.to_str().unwrap())?;
         let mut contents = String::new();
         file.read_to_string(&mut contents)?;
-
-        println!("File contents: `{}`", contents);
 
         let norm = normalize::normalize(&contents[..]);
         let fps = fingerprint::fingerprint(norm);

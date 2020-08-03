@@ -39,16 +39,16 @@ impl NormText {
 // (written assuming 'v')
 const NORM_IDENTIFIER: char = 'v';
 
-// Remove/normalize any features from a program's text that 
+// Remove/normalize any features from a program's text that
 // shouldn't differentiate it from other programs:
 //      1. normalize identifiers
 //      2. remove whitespace
 //      3. remove type annotations
 //      4. remove docstrings
 //      5. remove comments
-// Returns the normalized string & enough info to map parts 
+// Returns the normalized string & enough info to map parts
 // of the normalized text to line numbers in the original (LineMapping)
-pub fn normalize(program: &str) -> NormText {    
+pub fn normalize(program: &str) -> NormText {
     let mut head: &str = &program;          // rest of program to be processed
     let mut norm = String::from("");        // normalized program text
     let mut norm_idx = 0;                   // next index to write to in norm text
@@ -158,7 +158,7 @@ fn match_whitespace(hd: &str) -> Option<Match> {
     extract_match(hd, &WHITESPACE)
 }
 
-// extract longest comment prefix if any, or None 
+// extract longest comment prefix if any, or None
 fn match_comment(hd: &str) -> Option<Match> {
     lazy_static! {
         // match single- and multi-line comments
@@ -211,7 +211,7 @@ fn match_type(hd: &str) -> Option<Match> {
     // are removed, no whitespace artifact will be left)
     fn parse_type<'a>(head: &'a str, prefix: Match) -> Option<Match<'a>> {
         let (pref_mat, pref_rest, pref_len) = prefix;
-        
+
         if pref_rest.starts_with('(') {
             // try complex type (match everything within balanced parens)
             let mut open_parens = 1;    // count of open parentheses read so far
