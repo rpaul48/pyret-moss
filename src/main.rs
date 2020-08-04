@@ -1,11 +1,31 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
+use std::path::Path;
+use crate::fingerprint::Fingerprint;
 
 mod fingerprint;
 mod normalize;
 mod file_io;
 mod phase_i;
 mod error;
+
+// Sub represents a student submission.
+// Depending on whether input submissions are directories or
+// indiv. files, the dir_name field will be Some or None
+#[derive(Debug)]
+pub struct Sub<'a> {
+    pub dir_name: Option<&'a Path>,
+    pub documents: Vec<Doc<'a>>
+}
+
+// Doc represents a file within a submission.
+// Docs are initialized as Unprocessed (contents have not yet been
+// read), and become Processed once they have been fingerprinted
+#[derive(Debug)]
+pub enum Doc<'a> {
+    Unprocessed(&'a Path),
+    Processed(&'a Path, Vec<Fingerprint>)
+}
 
 /*
 User-available parameters:
@@ -17,31 +37,45 @@ User-available parameters:
 	- limit max number of pairs of subs to report on in output
 */
 
-use phase_i::{make_ignore_set, analyze_subs};
-use std::path::Path;
-use crate::fingerprint::Fingerprint;
-use crate::file_io::{Sub, Doc};
-
 fn main() {
-	let mut sub1 = Sub {
-		dir_name: Some(&Path::new("./test-dirs/tinker/multi-dir/sub1")),
-		documents: vec![
-			Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub1/common.arr")),
-			Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub1/main.arr"))
-		]
-	};
-	let mut sub2 = Sub {
-		dir_name: Some(&Path::new("./test-dirs/tinker/multi-dir/sub2")),
-		documents: vec![
-			Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub2/common.arr")),
-			Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub2/main.arr"))
-		]
-	};
 
-	let mut submissions = vec![&mut sub1, &mut sub2];
+	use phase_i::{make_ignore_set, analyze_subs};
+	use std::path::Path;
+	use crate::fingerprint::{self, Fingerprint};
+	use crate::normalize::normalize;
 
-	if let Ok(set) = make_ignore_set(&Path::new("./test-dirs/tinker/ignore")) {
-		println!("Ignoring {:?}", set);
-		println!("Analysis output: {:#?}", analyze_subs(&mut submissions, Some(set)));
-	}
+	let a = "provide *\n\
+	\n\
+	data Structure<T>:\n\
+		\t| variant(field :: T)\n\
+	end";
+
+	let norm = normalize::normalize(&a[..]);
+	let fps = fingerprint::fingerprint(norm);
+
+	println!("{:?}", fps);
+	println!("{} fingerprints.", fps.len());
+
+
+	// let mut sub1 = Sub {
+	// 	dir_name: Some(&Path::new("./test-dirs/tinker/multi-dir/sub1")),
+	// 	documents: vec![
+	// 		Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub1/common.arr")),
+	// 		Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub1/main.arr"))
+	// 	]
+	// };
+	// let mut sub2 = Sub {
+	// 	dir_name: Some(&Path::new("./test-dirs/tinker/multi-dir/sub2")),
+	// 	documents: vec![
+	// 		Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub2/common.arr")),
+	// 		Doc::Unprocessed(&Path::new("./test-dirs/tinker/multi-dir/sub2/main.arr"))
+	// 	]
+	// };
+
+	// let mut submissions = vec![&mut sub1, &mut sub2];
+
+	// if let Ok(set) = make_ignore_set(&Path::new("./test-dirs/tinker/ignore")) {
+	// 	println!("Ignoring {:?}", set);
+	// 	println!("Analysis output: {:#?}", analyze_subs(&mut submissions, Some(set)));
+	// }
 }

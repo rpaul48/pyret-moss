@@ -5,24 +5,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::io;
 use crate::fingerprint::Fingerprint;
-
-// Sub represents a student submission.
-// Depending on whether input submissions are directories or
-// indiv. files, the dir_name field will be Some or None
-#[derive(Debug)]
-pub struct Sub<'a> {
-    pub dir_name: Option<&'a Path>,
-    pub documents: Vec<Doc<'a>>
-}
-
-// Doc represents a file within a submission.
-// Docs are initialized as Unprocessed (contents have not yet been
-// read), and become Processed once they have been fingerprinted
-#[derive(Debug)]
-pub enum Doc<'a> {
-    Unprocessed(&'a Path),
-    Processed(&'a Path, Vec<Fingerprint>)
-}
+use crate::{Doc, Sub};
 
 // construct a vector of PathBufs to all files in a given directory 
 // that pass the given predicate
@@ -147,6 +130,4 @@ mod file_io_tests {
 
         Ok(())
     }
-
-
 }

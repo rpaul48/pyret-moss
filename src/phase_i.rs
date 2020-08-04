@@ -2,7 +2,8 @@
 
 use fnv::FnvHashMap;
 use std::collections::HashSet;
-use crate::file_io::{self, Sub, Doc};
+use crate::file_io;
+use crate::{Doc, Sub};
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
@@ -11,6 +12,7 @@ use std::path::Path;
 use crate::fingerprint::{self, Fingerprint};
 use crate::normalize;
 
+// Read a file's contents into memory & normalize/fingerprint it
 fn read_and_fingerprint(path: &Path) -> io::Result<Vec<Fingerprint>> {
     // read file text
     let mut file = File::open(path.to_str().unwrap())?;
@@ -86,8 +88,42 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
 }
 
 
-// #[cfg(test)]
-// mod file_io_tests {
-//     use super::*;
+#[cfg(test)]
+mod file_io_tests {
+    use super::*;
 
-// }
+    #[test]
+    fn test_read_and_fingerprint() -> io::Result<()> {
+        let dir = "./test-dirs/test/read-and-fingerprint/";
+
+        {
+            let exp_fps = vec![
+                Fingerprint { hash: 3154647, lines: (2, 2) }, 
+                Fingerprint { hash: 3391766, lines: (2, 2) }, 
+                Fingerprint { hash: 1306367, lines: (2, 2) }, 
+                Fingerprint { hash: 1280869, lines: (2, 3) }, 
+                Fingerprint { hash: 1367861, lines: (3, 4) }];
+
+            // k=4, t=6
+            let out = read_and_fingerprint(&Path::new(&format!("{}{}", dir, "a.arr")))?;
+
+            assert_eq!(exp_fps, out);
+        }
+        {
+            let exp_fps = vec![
+                Fingerprint { hash: 95404550, lines: (1, 3) }, 
+                Fingerprint { hash: 94626066, lines: (1, 3) }, 
+                Fingerprint { hash: 41863892, lines: (1, 3) }, 
+                Fingerprint { hash: 57373058, lines: (3, 4) }, 
+                Fingerprint { hash: 40498820, lines: (4, 5) }];
+
+            // k=5, t=10
+            let out = read_and_fingerprint(&Path::new(&format!("{}{}", dir, "b.arr")))?;
+
+            assert_eq!(exp_fps, out);
+        }
+
+        Ok(())
+    }
+
+}
