@@ -339,7 +339,6 @@ fn account_for_newlines(slice: &str, idx: i32, le: &mut Vec<i32>, preserve_newli
 #[cfg(test)]
 mod normalize_tests {
     use super::*;
-    use std::convert::TryInto;
 
     #[test]
     fn line_number_info_preserved() {

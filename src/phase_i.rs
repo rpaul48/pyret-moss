@@ -42,7 +42,6 @@ pub fn make_ignore_set(ignore_dir: &Path) -> io::Result<HashSet<i64>> {
 // a hashmap from fingerprint hashes to the set of subs that share that hash
 pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i64>>) 
     -> io::Result<FnvHashMap<i64, Vec<&'a Sub<'a>>>> {
-
     let mut fp_to_subs = FnvHashMap::default();
 
     // for each submission
@@ -79,9 +78,16 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
             // add this sub to the vec of subs that share this fingerprint
             fp_to_subs.entry(fp.hash)
                 .or_insert_with(Vec::new)
-                .push(&**sub);
+                .push(&**sub);  // sub is &mut&mut Sub, so this converts to &Sub
         }
     }
 
     Ok(fp_to_subs)
 }
+
+
+// #[cfg(test)]
+// mod file_io_tests {
+//     use super::*;
+
+// }

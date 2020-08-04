@@ -3,10 +3,10 @@
 use crate::normalize::NormText;
 
 // the noise threshold; matches shorter than it are not considered
-static k: i32 = 5;
+static k: i32 = 10;
 
 // the guarantee threshold, or the min substring length at which matches are guaranteed to be caught
-static t: i32 = 8;
+static t: i32 = 25;
 
 // the window size
 static w: i32 = t - k + 1;
