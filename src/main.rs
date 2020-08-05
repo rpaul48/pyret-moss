@@ -29,17 +29,9 @@ pub enum Doc<'a> {
 }
 
 fn main() {
-	use crate::cli;
 	use std::env;
 	let args: Vec<String> = env::args().collect();
-
 	println!("Arguments: {:?}", args);
-
-	// let mut def = cli::OptArgs::default();
-	// println!("{:?}", def);
-	// def.k = 0;
-	// println!("{:?}", def);
-
 
 
 

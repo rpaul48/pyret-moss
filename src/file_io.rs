@@ -4,8 +4,6 @@ use std::process;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io;
-use crate::fingerprint::Fingerprint;
-use crate::{Doc, Sub};
 
 // construct a vector of PathBufs to all files in a given directory 
 // that pass the given predicate

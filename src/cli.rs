@@ -7,10 +7,10 @@ Mandatory args:
     - sub_dir:          path of directory where submissions can be found
 
 Optional args:
-	- sub_mode:         indicates whether subs are files or dirs
-	- k:                noise threshold
+    - sub_mode:         indicates whether subs are files or dirs
+    - k:                noise threshold
     - t:                guarantee threshold
-	- ignore_dir:       ignore boilerplate code (indicate a dir)
+    - ignore_dir:       ignore boilerplate code (indicate a dir)
     - max_pairs_out:    limit max number of pairs of subs to report on in output
     - out_file:         where the program's result summary will be written (default stdout)
     - verbose:          more logging
@@ -52,6 +52,20 @@ impl Default for OptArgs<'_> {
         }
     }
 }
+
+// Parse command line arguments and return a Path to the 
+// submissions dir, and a struct with optional arg values.
+// If the help flag is included, print_help() will be called
+// and the program will exit.
+fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
+    unimplemented!();
+}
+
+// Print a help message explaining the command line interface & exit
+fn print_help() {
+    unimplemented!();
+}
+
 
 // Copy-detection for Pyret
 
