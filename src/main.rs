@@ -8,6 +8,7 @@ mod normalize;
 mod file_io;
 mod phase_i;
 mod error;
+mod cli;
 
 // Sub represents a student submission.
 // Depending on whether input submissions are directories or
@@ -27,34 +28,43 @@ pub enum Doc<'a> {
     Processed(&'a Path, Vec<Fingerprint>)
 }
 
-/*
-User-available parameters:
-	- ignore boilerplate code (indicate a dir)
-	- single-dir mode: submissions are assumed to be each 1 doc
-	- k: noise threshold
-	- t: guarantee threshold
-	- result location: where the program's result summary will be written (default stdout)
-	- limit max number of pairs of subs to report on in output
-*/
-
 fn main() {
+	use crate::cli;
+	use std::env;
+	let args: Vec<String> = env::args().collect();
 
-	use phase_i::{make_ignore_set, analyze_subs};
-	use std::path::Path;
-	use crate::fingerprint::{self, Fingerprint};
-	use crate::normalize::normalize;
+	println!("Arguments: {:?}", args);
 
-	let a = "provide *\n\
-	\n\
-	data Structure<T>:\n\
-		\t| variant(field :: T)\n\
-	end";
+	// let mut def = cli::OptArgs::default();
+	// println!("{:?}", def);
+	// def.k = 0;
+	// println!("{:?}", def);
 
-	let norm = normalize::normalize(&a[..]);
-	let fps = fingerprint::fingerprint(norm);
 
-	println!("{:?}", fps);
-	println!("{} fingerprints.", fps.len());
+
+
+
+
+
+
+	
+
+	// use phase_i::{make_ignore_set, analyze_subs};
+	// use std::path::Path;
+	// use crate::fingerprint::{self, Fingerprint};
+	// use crate::normalize::normalize;
+
+	// let a = "provide *\n\
+	// \n\
+	// data Structure<T>:\n\
+	// 	\t| variant(field :: T)\n\
+	// end";
+
+	// let norm = normalize::normalize(&a[..]);
+	// let fps = fingerprint::fingerprint(norm);
+
+	// println!("{:?}", fps);
+	// println!("{} fingerprints.", fps.len());
 
 
 	// let mut sub1 = Sub {
