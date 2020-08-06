@@ -31,7 +31,10 @@ pub enum Doc<'a> {
 fn main() {
 	use std::env;
 	let args: Vec<String> = env::args().collect();
-	println!("Arguments: {:?}", args);
+	// println!("Arguments: {:?}", args);
+	let (sub_dir, opts) = cli::parse_args(&args);
+	println!("Submission directory: {}", sub_dir.display());
+	println!("Optional args: {:#?}", opts);
 
 
 
