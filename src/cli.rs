@@ -3,28 +3,17 @@
 use std::path::Path;
 use crate::error;
 
-/*
-Mandatory args:
-    - sub_dir:          path of directory where submissions can be found
-
-Optional args:
-    - sub_mode:         indicates whether subs are files or dirs
-    - k:                noise threshold
-    - t:                guarantee threshold
-    - ignore_dir:       ignore boilerplate code (indicate a dir)
-    - max_pairs_out:    limit max number of pairs of subs to report on in output
-    - out_file:         where the program's result summary will be written (default stdout)
-    - verbose:          more logging
-*/
-#[derive(Debug)]
+// OptArgs encodes important system parameters that have default values
+// but can be set via the command line interface
+#[derive(Debug, PartialEq)]
 pub struct OptArgs<'a> {
-    pub sub_mode: SubFileMode,
-    pub k: i32,
-    pub t: i32,
-    pub ignore_dir: Option<&'a Path>,
-    pub max_pairs_out: Option<i32>,
-    pub out_file: Option<&'a Path>,
-    pub verbose: bool
+    pub sub_mode: SubFileMode,          // indicates whether subs are files or dirs
+    pub k: i32,                         // noise threshold
+    pub t: i32,                         // guarantee threshold
+    pub ignore_dir: Option<&'a Path>,   // dir of files indicating expected overlap to ignore
+    pub max_pairs_out: Option<i32>,     // max pairs of submissions to report on in output
+    pub out_file: Option<&'a Path>,     // where the program's result summary will be written (default stdout)
+    pub verbose: bool                   // option to increase intensity of logging
 }
 
 // SubFileMode indicates how submissions should be found within 
@@ -33,7 +22,7 @@ pub struct OptArgs<'a> {
 //     will construct one Sub for each .arr file in the given dir
 //  2) Multi assumes submissions are directories with multiple .arr files
 //     within them, and will construct one Sub for each dir in the given dir.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum SubFileMode {
     Single,
     Multi
@@ -195,3 +184,98 @@ OPTIONS:
     --max-out <VALUE>       Limits the number of submission pairs in the output analysis to VALUE
     -o <FILE>               Writes the analysis to FILE instead of stdout
     --verbose               More logging";
+
+
+#[cfg(test)]
+mod cli_tests {
+    use super::*;
+
+    // convert a Vec<&str> into Vec<String>, for convenience
+    fn toVecString(v: Vec<&str>) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn parse_args_no_optionals() {
+        {
+            let args = toVecString(vec![
+                "./pyret-moss",
+                "/home/user/Desktop/submissions"
+            ]);
+
+            let (sub_dir, opt_args) = parse_args(&args);
+
+            assert_eq!(sub_dir, Path::new("/home/user/Desktop/submissions"));
+            assert_eq!(opt_args, OptArgs::default());
+        }
+        {
+            let args = toVecString(vec![
+                "pmoss",
+                "./here/are/the/submissions"
+            ]);
+
+            let (sub_dir, opt_args) = parse_args(&args);
+
+            assert_eq!(sub_dir, Path::new("./here/are/the/submissions"));
+            assert_eq!(opt_args, OptArgs::default());
+        }
+    }
+
+    #[test]
+    fn parse_args_with_options() {
+        {
+            let args = toVecString(vec![
+                "./pyret-moss",
+                "-k",
+                "10",
+                "--ignore",
+                "./dirs/ignore",
+                "./subs"
+            ]);
+
+            let (sub_dir, opt_args) = parse_args(&args);
+
+            assert_eq!(sub_dir, Path::new("./subs"));
+            assert_eq!(opt_args, OptArgs {
+                sub_mode: SubFileMode::Multi,
+                k: 10,
+                t: 20,
+                ignore_dir: Some(&Path::new("./dirs/ignore")),
+                max_pairs_out: None,
+                out_file: None,
+                verbose: false
+            });
+        }
+        {
+            let args = toVecString(vec![
+                "./pyret-moss",
+                "~/submissions",
+                "--max-out",
+                "15",
+                "--verbose",
+                "-o",
+                "~/Desktop/analysis.txt",
+                "-k",
+                "20",
+                "-t",
+                "25",
+                "--single-file-subs",
+                "--ignore",
+                "./boilerplate"
+            ]);
+
+            let (sub_dir, opt_args) = parse_args(&args);
+
+            assert_eq!(sub_dir, Path::new("~/submissions"));
+            assert_eq!(opt_args, OptArgs {
+                sub_mode: SubFileMode::Single,
+                k: 20,
+                t: 25,
+                ignore_dir: Some(&Path::new("./boilerplate")),
+                max_pairs_out: Some(15),
+                out_file: Some(&Path::new("~/Desktop/analysis.txt")),
+                verbose: true
+            });
+        }
+    }
+}
