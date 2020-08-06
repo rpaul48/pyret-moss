@@ -4,9 +4,12 @@ use std::process;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io;
+use crate::{Sub, Doc};
+use crate::cli::SubFileMode;
+use crate::error;
 
-// construct a vector of PathBufs to all files in a given directory 
-// that pass the given predicate
+// Construct a vector of PathBufs to all files in a given 
+// directory that pass the given predicate
 fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>> 
     where F: Fn(&PathBuf) -> bool {
     let mut paths = Vec::new();
@@ -23,7 +26,18 @@ fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>>
     Ok(paths)
 }
 
-// get paths to all .arr files in a given directory
+// Gets paths to all dirs in a given directory
+fn dirs_in_dir(dir: &Path) -> Vec<PathBuf> {
+    match paths_in_dir(dir, |p| p.is_dir()) {
+        Ok(paths) => paths,
+        Err(_) => {
+            eprintln!("Error: Failed to read dirs in `{}`", dir.display());
+            process::exit(1);
+        },
+    }
+}
+
+// Gets paths to all .arr files in a given directory
 pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     let is_arr = |p: &PathBuf| {
         match p.extension() {
@@ -33,18 +47,74 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     };
     match paths_in_dir(dir, is_arr) {
         Ok(paths) => paths,
-        Err(e) => {
+        Err(_) => {
             eprintln!("Error: Failed to read .arr files in `{}`", dir.display());
             process::exit(1);
         },
     }
 }
 
+// Build a vector of submissions by traversing the given directory in a 
+// manner specified by the sub_mode
+pub fn construct_subs(sub_dir: &Path, sub_mode: SubFileMode) -> Vec<Sub> {
+    let mut subs = Vec::new();
+
+    if !sub_dir.is_dir() {  // validate submission directory
+        error::err(&format!("submission directory `{}` is not a dir", sub_dir.display()));
+    }
+
+    match sub_mode {
+        // treat submissions as individual .arr files within the sub_dir
+        SubFileMode::Single => {
+            let sub_files = arr_files_in_dir(sub_dir);
+
+            if sub_files.len() == 0 {
+                error::err(&format!("submission directory `{}` contains no .arr files", sub_dir.display()));
+            }
+
+            // for each submission (.arr file)
+            for file in sub_files.iter() {
+                let doc = Doc::Unprocessed(file.to_path_buf());
+
+                subs.push(Sub {
+                    dir_name: None,
+                    documents: vec![doc]
+                });
+            }
+        },
+        // treat submissions as dirs of .arr files within sub_dir
+        SubFileMode::Multi => {
+            let sub_dirs = dirs_in_dir(sub_dir);
+
+            if sub_dirs.len() == 0 {
+                error::err(&format!("submission directory `{}` contains no subdirectories", sub_dir.display()));
+            }
+
+            // for each submission (subdirectory)
+            for sub in sub_dirs.iter() {
+                // read files for this submission
+                let files = arr_files_in_dir(sub.as_path());
+                let mut docs = Vec::new();
+
+                for file in files.iter() {
+                    docs.push(Doc::Unprocessed(file.to_path_buf()));
+                }
+
+                subs.push(Sub {
+                    dir_name: Some(sub.to_path_buf()),
+                    documents: docs
+                });
+            }
+        },
+    };
+
+    subs    // return constructed submissions
+}
+
 
 #[cfg(test)]
-mod file_io_tests {
+mod tests {
     use super::*;
-    use std::ffi::OsStr;
 
     // construct a PathBuf from a dir path & a file within it
     fn mk_pathb(d: &str, f: &str) -> PathBuf {
@@ -71,6 +141,7 @@ mod file_io_tests {
             // accept all paths in directory
             let mut expected = vec![
                 mk_pathb(dir, "dir"),
+                mk_pathb(dir, "dir2"),
                 mk_pathb(dir, "pyret-file.arr"),
                 mk_pathb(dir, "second-pyret.arr"),
                 mk_pathb(dir, "markdown.md"),
@@ -97,7 +168,8 @@ mod file_io_tests {
             let mut expected = vec![
                 mk_pathb(dir, "pyret-file.arr"),
                 mk_pathb(dir, "second-pyret.arr"),
-                mk_pathb(dir, "dir")
+                mk_pathb(dir, "dir"),
+                mk_pathb(dir, "dir2")
             ];
 
             assert_paths_in_dir(&dir, &mut expected, |p| {
@@ -112,7 +184,23 @@ mod file_io_tests {
     }
 
     #[test]
-    fn test_arr_files_in_dir() -> io::Result<()> {
+    fn test_dirs_in_dir() {
+        let dir = "./test-dirs/test/read-dir-contents/";
+
+        let mut out = dirs_in_dir(Path::new(&dir));
+        let mut exp_paths = vec![
+            mk_pathb(dir, "dir"),
+            mk_pathb(dir, "dir2")
+        ];
+
+        out.sort();
+        exp_paths.sort();
+
+        assert_eq!(out, exp_paths);
+    }
+
+    #[test]
+    fn test_arr_files_in_dir() {
         let dir = "./test-dirs/test/read-dir-contents/";
 
         let mut out = arr_files_in_dir(Path::new(&dir));
@@ -125,7 +213,58 @@ mod file_io_tests {
         exp_paths.sort();
 
         assert_eq!(out, exp_paths);
+    }
 
-        Ok(())
+    #[test]
+    fn test_construct_subs() {
+
+        // construct a submission from optional dirname & paths of docs
+        fn mk_sub(dir_name: Option<&str>, docs: Vec<&str>) -> Sub {
+            Sub {
+                dir_name: match dir_name {
+                    Some(name) => Some(PathBuf::from(name)),
+                    None => None,
+                },
+                documents: docs.iter().map(|s| {
+                    Doc::Unprocessed(PathBuf::from(s))
+                }).collect()
+            }
+        }
+
+        {
+            let sub_dir = Path::new("./test-dirs/test/single-file");
+            let mut out = construct_subs(sub_dir, SubFileMode::Single);
+            let mut exp_subs = vec![
+                mk_sub(None, vec![
+                    "./test-dirs/test/single-file/sub1.arr"
+                ]),
+                mk_sub(None, vec![
+                    "./test-dirs/test/single-file/sub2.arr"
+                ])
+            ];
+
+            out.sort(); exp_subs.sort();
+            assert_eq!(out, exp_subs);
+        }
+        {
+            let sub_dir = Path::new("./test-dirs/test/multi-file");
+            let mut out = construct_subs(sub_dir, SubFileMode::Multi);
+            let mut exp_subs = vec![
+                mk_sub(Some("./test-dirs/test/multi-file/sub1"), vec![
+                    "./test-dirs/test/multi-file/sub1/common.arr",
+                    "./test-dirs/test/multi-file/sub1/main.arr"
+                ]),
+                mk_sub(Some("./test-dirs/test/multi-file/sub2"), vec![
+                    "./test-dirs/test/multi-file/sub2/common.arr",
+                    "./test-dirs/test/multi-file/sub2/main.arr"
+                ])
+            ];
+            
+            for o in out.iter_mut() { o.documents.sort(); }
+            for e in exp_subs.iter_mut() { e.documents.sort(); }
+            out.sort(); exp_subs.sort();
+
+            assert_eq!(out, exp_subs);
+        }
     }
 }

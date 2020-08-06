@@ -170,7 +170,7 @@ static HELP_MSG: &str = "\
 Copy-detection for Pyret
 
 USAGE:
-    ./pyret-moss <SUBMISSIONS-DIR> [OPTIONS]
+    pyret-moss <SUBMISSIONS-DIR> [OPTIONS]
 
 SUBMISSIONS-DIR indicates a directory containing submissions (either individual .arr
 files or subdirectories of .arr files)
@@ -183,22 +183,23 @@ OPTIONS:
     --ignore <DIR>          Indicates submission matches with the .arr files in DIR should be ignored
     --max-out <VALUE>       Limits the number of submission pairs in the output analysis to VALUE
     -o <FILE>               Writes the analysis to FILE instead of stdout
-    --verbose               More logging";
+    --verbose               More logging
+";
 
 
 #[cfg(test)]
-mod cli_tests {
+mod tests {
     use super::*;
 
     // convert a Vec<&str> into Vec<String>, for convenience
-    fn toVecString(v: Vec<&str>) -> Vec<String> {
+    fn to_vec_string(v: Vec<&str>) -> Vec<String> {
         v.iter().map(|s| s.to_string()).collect()
     }
 
     #[test]
     fn parse_args_no_optionals() {
         {
-            let args = toVecString(vec![
+            let args = to_vec_string(vec![
                 "./pyret-moss",
                 "/home/user/Desktop/submissions"
             ]);
@@ -209,7 +210,7 @@ mod cli_tests {
             assert_eq!(opt_args, OptArgs::default());
         }
         {
-            let args = toVecString(vec![
+            let args = to_vec_string(vec![
                 "pmoss",
                 "./here/are/the/submissions"
             ]);
@@ -224,7 +225,7 @@ mod cli_tests {
     #[test]
     fn parse_args_with_options() {
         {
-            let args = toVecString(vec![
+            let args = to_vec_string(vec![
                 "./pyret-moss",
                 "-k",
                 "10",
@@ -247,7 +248,7 @@ mod cli_tests {
             });
         }
         {
-            let args = toVecString(vec![
+            let args = to_vec_string(vec![
                 "./pyret-moss",
                 "~/submissions",
                 "--max-out",

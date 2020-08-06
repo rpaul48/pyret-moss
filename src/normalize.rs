@@ -337,7 +337,7 @@ fn account_for_newlines(slice: &str, idx: i32, le: &mut Vec<i32>, preserve_newli
 }
 
 #[cfg(test)]
-mod normalize_tests {
+mod tests {
     use super::*;
 
     #[test]

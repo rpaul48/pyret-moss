@@ -2,12 +2,13 @@
 
 use fnv::FnvHashMap;
 use std::collections::HashSet;
-use crate::file_io;
 use crate::{Doc, Sub};
+use crate::file_io;
+use crate::error;
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::fingerprint::{self, Fingerprint};
 use crate::normalize;
@@ -30,6 +31,10 @@ pub fn make_ignore_set(ignore_dir: &Path) -> io::Result<HashSet<i64>> {
     let ignore_paths = file_io::arr_files_in_dir(ignore_dir);
     let mut ignore_set = HashSet::new();
 
+    if ignore_paths.len() == 0 {
+        error::err(&format!("no .arr files to ignore in `{}`", ignore_dir.display()));
+    }
+
     for path in ignore_paths.iter() {
         let fps = read_and_fingerprint(path)?;
 
@@ -43,7 +48,7 @@ pub fn make_ignore_set(ignore_dir: &Path) -> io::Result<HashSet<i64>> {
 // Read/normalize/fingerprint documents in given submissions, constructing
 // a hashmap from fingerprint hashes to the set of subs that share that hash
 pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i64>>) 
-    -> io::Result<FnvHashMap<i64, Vec<&'a Sub<'a>>>> {
+    -> io::Result<FnvHashMap<i64, Vec<&'a Sub>>> {
     let mut fp_to_subs = FnvHashMap::default();
 
     // for each submission
@@ -73,7 +78,7 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
             for fp in fps.iter() { sub_fps.insert(fp.clone()); }
 
             // update Doc at this position to include fingerprints
-            *doc = Doc::Processed(doc_path, fps);
+            *doc = Doc::Processed(doc_path.to_path_buf(), fps);
         }
 
         for fp in sub_fps.iter() {
@@ -89,7 +94,7 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
 
 
 #[cfg(test)]
-mod file_io_tests {
+mod tests {
     use super::*;
 
     #[test]
