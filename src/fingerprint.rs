@@ -22,7 +22,6 @@ pub struct Fingerprint {
 // input k represents the noise threshold; matches shorter than it are not considered
 // input t represents the the min substring length at which matches are guaranteed to be caught
 pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
-
     // the text field of the input NormText
     let doc: &String = &nt.value;
     let len: i32 = doc.chars().count() as i32;
@@ -72,7 +71,7 @@ pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
 // In each window select the minimum hash value. If possible break ties by selecting
 // the same hash as the window one position to the left. If not, select the rightmost minimal hash.
 // Save all selected hashes as the fingerprints of the document.
-pub fn robust_winnow(hashed_kgrams: Vec<i64>, window_size: usize) -> Vec<(i64, usize)> {
+fn robust_winnow(hashed_kgrams: Vec<i64>, window_size: usize) -> Vec<(i64, usize)> {
 
     let max_window_index: usize = hashed_kgrams.len() as usize;
     let mut window_start: usize = 0;
@@ -149,7 +148,7 @@ pub fn robust_winnow(hashed_kgrams: Vec<i64>, window_size: usize) -> Vec<(i64, u
 
 // a rolling hash function for a vector of strings
 // assumes each "kgram" &str in the input Vec is of length k
-pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
+fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
     let len = kgrams.len();
 
     // the output vector of hashes, which is returned when the entirety of the input is hashed
@@ -199,7 +198,7 @@ pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
 
 // a simple, non-rolling hash function for strings
 // only matches the output of rolling_hash() when the input str is of length k
-pub fn hash(str: &str) -> i64 {
+fn hash(str: &str) -> i64 {
     let len = str.chars().count() as usize;
     let mut hash_val: i64 = 0;
 
@@ -216,7 +215,7 @@ pub fn hash(str: &str) -> i64 {
 
 // a modular exponentiation function, which calculates the remainder when base is raised to
 // the power of exponent and divided by modulus
-pub fn mod_exp(mut base: i64, mut exponent: i64, modulus: i64) -> i64 {
+fn mod_exp(mut base: i64, mut exponent: i64, modulus: i64) -> i64 {
     if modulus == 1 {
         0
     } else {
@@ -234,7 +233,7 @@ pub fn mod_exp(mut base: i64, mut exponent: i64, modulus: i64) -> i64 {
 }
 
 #[cfg(test)]
-mod fingerprint_tests {
+mod tests {
     use super::*;
 
     #[test]
