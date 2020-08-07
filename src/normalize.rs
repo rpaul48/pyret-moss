@@ -50,7 +50,7 @@ const NORM_IDENTIFIER: char = 'v';
 // of the normalized text to line numbers in the original (LineMapping)
 pub fn normalize(program: &str) -> NormText {
     let mut head: &str = &program;          // rest of program to be processed
-    let mut norm = String::from("");        // normalized program text
+    let mut norm = String::new();           // normalized program text
     let mut norm_idx = 0;                   // next index to write to in norm text
     let mut line_ends = Vec::new();         // encodes line info (see NormText above)
 
@@ -83,6 +83,26 @@ pub fn normalize(program: &str) -> NormText {
             head = rest;    // jump over annotation
             account_for_newlines(mat, norm_idx, &mut line_ends, false);
             continue;
+
+            // // IDEA FOR HANDLING TYPE ANNOTATIONS
+            // if (ignore) {
+            //     head = rest;    // jump over annotation without writing to norm
+            //     account_for_newlines(mat, norm_idx, &mut line_ends, false);
+            //     continue;
+
+            // } else if (preserve) {
+            //     // account for newlines within the annotation
+            //     account_for_newlines(mat, norm_idx, &mut line_ends, false);
+            //     norm.push_str(mat);         // write original annotation to norm
+            //     norm_idx += len as i32;     // increase index past match
+            //     head = rest;                // move to end of annotation
+            //     continue;
+
+            // } else if (normalize) {
+            //     // just move past the colon/arrow if any,
+            //     // let identifier case handle the rest
+            //     continue;
+            // }
         }
 
         // ------- String Literals -------
@@ -96,12 +116,11 @@ pub fn normalize(program: &str) -> NormText {
             norm.push_str(mat); // write literal to norm
             norm_idx += len as i32;
 
-            head = rest;    // jump over literal
+            head = rest;    // move to end of literal
             continue;
         }
 
         // ------- Keywords & Identifiers -------
-        // (second to last test, because most general)
         if let Some((is_keyw, key_or_id)) = match_keyword_or_ident(head) {
             let (mat, rest, len) = key_or_id;
 
