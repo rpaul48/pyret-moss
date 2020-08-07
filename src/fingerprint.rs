@@ -1,6 +1,7 @@
 /* fingerprint.rs: Document fingerprinting using robust winnowing */
 
 use crate::normalize::NormText;
+use crate::normalize::normalize;
 
 // the base value used by the hash function, usually the size of the character set
 static BASE: i64 = 256;
@@ -77,21 +78,17 @@ pub fn robust_winnow(hashed_kgrams: Vec<i64>, window_size: usize) -> Vec<(i64, u
     let mut window_start: usize = 0;
     let mut window_end: usize = window_size;
 
+    // the output Vec, to be populated
     let mut fingerprint_tuples: Vec<(i64, usize)> = Vec::new();
     let mut prev_fingerprint: Option<(i64, usize)> = None;
 
-    // check all windows of size w in the hashed kgrams
-    while window_end <= max_window_index {
-        let window = &hashed_kgrams[window_start..window_end];
-
-        // find the minimum hash(es) of the current window
+    // if the window size is greater than the number of hashed kgrams, return rightmost min kgram
+    if window_end > max_window_index {
+        // find the minimum hash(es) in hashed_kgrams
         let mut cur_mins: Vec<(i64, usize)> = Vec::new();
-        let mut cur_window_index_counter: usize = 0;
 
-        for hash in window.iter() {
-            let index: usize = window_start + cur_window_index_counter;
-            let potential_fingerprint: (i64, usize) = (*hash, index);
-
+        for (i, hash) in hashed_kgrams.iter().enumerate() {
+            let potential_fingerprint: (i64, usize) = (*hash, i);
             if cur_mins.is_empty() {
                 cur_mins.push(potential_fingerprint);
             } else if hash < &cur_mins[0].0 {
@@ -99,27 +96,53 @@ pub fn robust_winnow(hashed_kgrams: Vec<i64>, window_size: usize) -> Vec<(i64, u
             } else if hash == &cur_mins[0].0 {
                 cur_mins.push(potential_fingerprint);
             }
-            cur_window_index_counter += 1;
         }
 
-        // compare cur_mins and prev_fingerprint to determine whether to update fingerprint_tuples
-        match prev_fingerprint {
-            // if no fingerprints have been identified Pyret
-            None => {
-                let next_fingerprint_tuple: (i64, usize) = *cur_mins.last().unwrap();
-                fingerprint_tuples.push(next_fingerprint_tuple);
-                prev_fingerprint = Some(next_fingerprint_tuple);
+        //add the rightmost minimum hash tuple to the output Vec
+        fingerprint_tuples.push(*cur_mins.last().unwrap());
+
+    } else {
+        // check all windows of size w in the hashed kgrams
+        while window_end <= max_window_index {
+            let window = &hashed_kgrams[window_start..window_end];
+
+            // find the minimum hash(es) of the current window
+            let mut cur_mins: Vec<(i64, usize)> = Vec::new();
+            let mut cur_window_index_counter: usize = 0;
+
+            for hash in window.iter() {
+                let index: usize = window_start + cur_window_index_counter;
+                let potential_fingerprint: (i64, usize) = (*hash, index);
+
+                if cur_mins.is_empty() {
+                    cur_mins.push(potential_fingerprint);
+                } else if hash < &cur_mins[0].0 {
+                    cur_mins = vec![potential_fingerprint]
+                } else if hash == &cur_mins[0].0 {
+                    cur_mins.push(potential_fingerprint);
+                }
+                cur_window_index_counter += 1;
             }
-            Some(fp) => {
-                // if none of cur_mins is the previous fingerprint, select the rightmost hash
-                if !cur_mins.contains(&fp) {
+
+            // compare cur_mins and prev_fingerprint to see whether to update fingerprint_tuples
+            match prev_fingerprint {
+                // if no fingerprints have been identified Pyret
+                None => {
                     let next_fingerprint_tuple: (i64, usize) = *cur_mins.last().unwrap();
                     fingerprint_tuples.push(next_fingerprint_tuple);
                     prev_fingerprint = Some(next_fingerprint_tuple);
                 }
+                Some(fp) => {
+                    // if none of cur_mins is the previous fingerprint, select the rightmost hash
+                    if !cur_mins.contains(&fp) {
+                        let next_fingerprint_tuple: (i64, usize) = *cur_mins.last().unwrap();
+                        fingerprint_tuples.push(next_fingerprint_tuple);
+                        prev_fingerprint = Some(next_fingerprint_tuple);
+                    }
+                }
             }
+            window_start += 1; window_end += 1;
         }
-        window_start += 1; window_end += 1;
     }
     fingerprint_tuples
 }
@@ -394,7 +417,7 @@ mod fingerprint_tests {
         assert_eq!(robust_winnow(input.to_owned(), 20), output);
     }
 
-
+    #[test]
     // tests robust_winnow() on the example provided in the "Winnowing: Local Algorithms for
     // Document Fingerprinting" paper
     fn paper_verified_robust_winnow() {
