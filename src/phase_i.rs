@@ -12,8 +12,11 @@ use std::path::{Path, PathBuf};
 use crate::fingerprint;
 use crate::normalize;
 
-// Construct a set of fingerprints to ignore by 
-// reading/normalizing/fingerprinting the given files 
+static K: i32 = 1;
+static T: i32 = 1;
+
+// Construct a set of fingerprints to ignore by
+// reading/normalizing/fingerprinting the given files
 pub fn make_ignore_set(ignore_dir: &Path) -> io::Result<HashSet<i64>> {
     let ignore_paths = file_io::arr_files_in_dir(ignore_dir);
     let mut ignore_set = HashSet::new();
@@ -24,7 +27,7 @@ pub fn make_ignore_set(ignore_dir: &Path) -> io::Result<HashSet<i64>> {
         file.read_to_string(&mut contents)?;
 
         let norm = normalize::normalize(&contents[..]);
-        let fps = fingerprint::fingerprint(norm);
+        let fps = fingerprint::fingerprint(norm, K, T);
 
         for fp in fps.iter() {
             ignore_set.insert(fp.hash);
@@ -36,7 +39,7 @@ pub fn make_ignore_set(ignore_dir: &Path) -> io::Result<HashSet<i64>> {
 
 // Read/normalize/fingerprint documents in given submissions, constructing
 // a hashmap from fingerprint hashes to the set of subs that share that hash
-pub fn analyze_subs(subs: Vec<Sub>, ignore: Option<HashSet<i64>>) 
+pub fn analyze_subs(subs: Vec<Sub>, ignore: Option<HashSet<i64>>)
     -> FnvHashMap<i64, Vec<&Sub>> {
     unimplemented!();
     /*

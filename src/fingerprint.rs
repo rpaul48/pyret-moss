@@ -2,8 +2,12 @@
 
 use crate::normalize::NormText;
 
-// the (preferably prime) base value used by the hash function
-static BASE: i64 = 31;
+// the base value used by the hash function, usually the size of the character set
+static BASE: i64 = 256;
+
+// the prime modulus for all hash calculations to be done under, which represents the range of
+// possible hash values (0, PRIME_MODULUS]
+static PRIME_MODULUS: i64 = 5381;
 
 // A Fingerprint contains a hash of a k-gram within a document,
 // and the range of line numbers to which that k-gram corresponds, inclusive
@@ -130,7 +134,6 @@ pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
     let mut prev_first_char: Option<char> = None;
 
     while output.len() < len {
-        //let cur_str: &str = kgrams.pop().unwrap();
         let cur_str: &str = kgrams[0];
         kgrams = kgrams[1..].to_vec();
 
@@ -146,10 +149,17 @@ pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
             // if at least one string has already been hashed
             Some(c) => {
                 // calculates the hash of the current string using the previous hash
-                let str_len = cur_str.chars().count() as u32;
+                let str_len = cur_str.chars().count() as i64;
                 let prev_hash: &i64 = output.last().unwrap();
-                let prev_first_char_component = (c as i64 * BASE.pow((str_len - 1) as u32));
-                let hash: i64 = ((prev_hash - prev_first_char_component) * BASE) + cur_last_char as i64;
+
+                // calculates the portion represented by the previous hash's first character
+                let prev_first_char_component =
+                    (c as i64 * mod_exp(BASE, str_len - 1, PRIME_MODULUS)) % PRIME_MODULUS;
+
+                // calculates the current hash by removing the previous first character's component,
+                // multiplying the remaining k-1 chars by BASE, and adding the new character
+                let hash: i64 = ((prev_hash + PRIME_MODULUS - prev_first_char_component) * BASE
+                + cur_last_char as i64) % PRIME_MODULUS;
 
                 // appends the hash of the current string to the output vector
                 output.push(hash);
@@ -161,21 +171,39 @@ pub fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
     output
 }
 
-// a simple, non-rolling, recursive hash function for strings
+// a simple, non-rolling hash function for strings
 // only matches the output of rolling_hash() when the input str is of length k
 pub fn hash(str: &str) -> i64 {
-    if str.is_empty() {
+    let len = str.chars().count() as usize;
+    let mut hash_val: i64 = 0;
+
+    // for each character c in the string, the value c multiplied by the modular exponent
+    // of (length of string - index of character - 1) is added to hash_val
+    for (i, c) in str.chars().enumerate() {
+        let char_lowered: i64 = c.to_lowercase().next().unwrap() as i64;
+        hash_val = (hash_val + (char_lowered * mod_exp(BASE, (len - i) as i64 - 1, PRIME_MODULUS))
+        % PRIME_MODULUS) % PRIME_MODULUS;
+    }
+
+    hash_val
+}
+
+// a modular exponentiation function, which calculates the remainder when base is raised to
+// the power of exponent and divided by modulus
+pub fn mod_exp(mut base: i64, mut exponent: i64, modulus: i64) -> i64 {
+    if modulus == 1 {
         0
     } else {
-        let len = str.chars().count() as u32;
-
-        let mut first = str.chars().next().unwrap().to_lowercase().next().unwrap() as i64;
-
-        let rest = &str[1..];
-
-        // computes a hash value corresponding to the first character of the input string
-        // adds to a recursive call to the hash values of the remaining components of the string
-        (first * BASE.pow(len - 1)) + hash(rest)
+        let mut output = 1;
+        base = base % modulus;
+        while exponent > 0 {
+            if exponent % 2 == 1 {
+                output = output * base % modulus;
+            }
+            exponent = exponent >> 1;
+            base = base * base % modulus
+        }
+        output
     }
 }
 
@@ -226,7 +254,7 @@ mod fingerprint_tests {
     fn hand_verified_robust_winnow() {
         // single window to be winnowed
         let single_window: Vec<i64> = vec![13, 4, 72, 3];
-        let expected_output: Vec<i64, usize> = vec![(3, 3)];
+        let expected_output: Vec<(i64, usize)> = vec![(3, 3)];
 
         assert_eq!(robust_winnow(single_window, 4), expected_output);
 
