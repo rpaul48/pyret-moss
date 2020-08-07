@@ -9,8 +9,8 @@ static BASE: i64 = 31;
 // and the range of line numbers to which that k-gram corresponds, inclusive
 #[derive(Debug)]
 pub struct Fingerprint {
-    hash: i64,
-    lines: (i32, i32)
+    pub hash: i64,
+    pub lines: (i32, i32)
 }
 
 // computes the Fingerprints of a normalized document using robust winnowing
