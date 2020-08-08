@@ -1,6 +1,7 @@
 /* fingerprint.rs: Document fingerprinting using robust winnowing */
 
-use crate::normalize::NormText;
+use std::process;
+use crate::normalize::*;
 
 // the base value used by the hash function, usually the size of the character set
 static BASE: i64 = 256;
@@ -30,6 +31,11 @@ pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
 
     // only attempt to fingerprint if the normalized string is greater than the noise threshold
     if len > k {
+        if t < k {
+            eprintln!("Error: `t` may not be less than 'k'.");
+            process::exit(1);
+        }
+
         // construct k-grams, a Vec<str>
         let mut kgrams: Vec<&str> = Vec::new();
         let mut start: usize = 0;
@@ -158,9 +164,9 @@ fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
         let cur_str: &str = kgrams[0];
         kgrams = kgrams[1..].to_vec();
 
-        let cur_first_char: char = 
+        let cur_first_char: char =
             cur_str.chars().next().unwrap().to_lowercase().next().unwrap();
-        let cur_last_char: char = 
+        let cur_last_char: char =
             cur_str.chars().last().unwrap().to_lowercase().next().unwrap();
 
         match prev_first_char {
@@ -425,4 +431,20 @@ mod tests {
 
         assert_eq!(robust_winnow(paper_example, 4), expected_output);
     }
+
+    #[test]
+    // tests fingerprint() on cases where it should return an empty output Vec: when the
+    // normalized text has fewer than k characters
+    fn empty_fingerprint_output() {
+        let empty_nt: NormText = normalize("");
+        assert_eq!(fingerprint(empty_nt, 0, 0), vec![], "empty input NormText");
+
+        let standard_nt: NormText = normalize("# Shared list definition that everyone gets as
+        boilerplate data MyList<T>: | my-empty| my-link(first :: T, rest :: List<T>) end");
+        //assert_eq!(fingerprint(standard_nt, 19, 20), vec![], "normalized text fewer than k chars");
+
+        println!("{}", fingerprint(standard_nt, 6, 4).len());
+    }
+
+
 }

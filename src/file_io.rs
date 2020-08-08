@@ -8,9 +8,9 @@ use crate::{Sub, Doc};
 use crate::cli::SubFileMode;
 use crate::error;
 
-// Construct a vector of PathBufs to all files in a given 
+// Construct a vector of PathBufs to all files in a given
 // directory that pass the given predicate
-fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>> 
+fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>>
     where F: Fn(&PathBuf) -> bool {
     let mut paths = Vec::new();
 
@@ -54,7 +54,7 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     }
 }
 
-// Build a vector of submissions by traversing the given directory in a 
+// Build a vector of submissions by traversing the given directory in a
 // manner specified by the sub_mode
 pub fn construct_subs(sub_dir: &Path, sub_mode: SubFileMode) -> Vec<Sub> {
     let mut subs = Vec::new();
@@ -121,6 +121,7 @@ mod tests {
         PathBuf::from(format!("{}{}", d, f))
     }
 
+    
     #[test]
     fn test_paths_in_dir() -> io::Result<()> {
         let dir = "./test-dirs/test/read-dir-contents/";
@@ -259,7 +260,7 @@ mod tests {
                     "./test-dirs/test/multi-file/sub2/main.arr"
                 ])
             ];
-            
+
             for o in out.iter_mut() { o.documents.sort(); }
             for e in exp_subs.iter_mut() { e.documents.sort(); }
             out.sort(); exp_subs.sort();
