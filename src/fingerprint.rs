@@ -1,5 +1,6 @@
 /* fingerprint.rs: Document fingerprinting using robust winnowing */
 
+use std::process;
 use crate::normalize::NormText;
 
 // the base value used by the hash function, usually the size of the character set
@@ -30,6 +31,11 @@ pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
 
     // only attempt to fingerprint if the normalized string is greater than the noise threshold
     if len > k {
+        if t < k {
+            eprintln!("Error: `t` may not be less than 'k'.");
+            process::exit(1);
+        }
+
         // construct k-grams, a Vec<str>
         let mut kgrams: Vec<&str> = Vec::new();
         let mut start: usize = 0;
@@ -158,9 +164,9 @@ fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
         let cur_str: &str = kgrams[0];
         kgrams = kgrams[1..].to_vec();
 
-        let cur_first_char: char = 
+        let cur_first_char: char =
             cur_str.chars().next().unwrap().to_lowercase().next().unwrap();
-        let cur_last_char: char = 
+        let cur_last_char: char =
             cur_str.chars().last().unwrap().to_lowercase().next().unwrap();
 
         match prev_first_char {
@@ -234,6 +240,7 @@ fn mod_exp(mut base: i64, mut exponent: i64, modulus: i64) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::normalize::normalize;
 
     #[test]
     // tests that mod_exp performs modular exponentiation as expected
@@ -424,5 +431,56 @@ mod tests {
         let expected_output: Vec<(i64, usize)> = vec![(17, 3), (17, 6), (8, 8), (39, 11), (17, 15)];
 
         assert_eq!(robust_winnow(paper_example, 4), expected_output);
+    }
+
+    #[test]
+    // tests fingerprint() on cases where it should return an empty output Vec; when the
+    // normalized text has fewer than k characters
+    fn empty_fingerprint_output() {
+        let empty_nt: NormText = normalize("");
+        assert_eq!(fingerprint(empty_nt, 0, 0), vec![], "empty input NormText");
+
+        let standard_nt: NormText = normalize("# Shared list definition that everyone gets as
+        boilerplate data MyList<T>: | my-empty| my-link(first :: T, rest :: List<T>) end");
+        assert_eq!(fingerprint(standard_nt, 19, 20), vec![], "normalized text fewer than k chars");
+    }
+
+    #[test]
+    // tests that fingerprint() accurately returns original line number information
+    fn line_numbers_preserved() {
+        let multiline_nt: NormText = normalize("fun f(x):\n\
+            \tblock:\n\
+            \t\t5 * 10\n\
+            \tend\n\
+        end");
+
+        let print1: Fingerprint = Fingerprint { hash: 678832678, lines: (1, 1) };
+        let print2: Fingerprint = Fingerprint { hash: 691692376, lines: (1, 2) };
+        let print3: Fingerprint = Fingerprint { hash: 891957668, lines: (2, 3) };
+        let print4: Fingerprint = Fingerprint { hash: 707866831, lines: (3, 4) };
+        let exp_out: Vec<Fingerprint> = vec![print1, print2, print3, print4];
+
+        assert_eq!(fingerprint(multiline_nt, 5, 12), exp_out);
+    }
+
+    #[test]
+    // tests that two NormTexts with overlapping substrings over t characters long share
+    // a fingerprint hash value
+    fn shared_fingerprints() {
+        let nt1: NormText = normalize("if (5 * 2) < 10:\n\
+                                            true\n\
+                                        else:\n\
+                                            false\n\
+                                        end");
+        let nt2: NormText = normalize("if !((5 * 2) < 10):\n\
+                                            false\n\
+                                        else:\n\
+                                            true\n\
+                                        end");
+
+        let out1: Vec<Fingerprint> = fingerprint(nt1, 4, 7);
+        let out2: Vec<Fingerprint> = fingerprint(nt2, 4, 7);
+
+        assert_eq!(out1[6].hash, out2[5].hash);
     }
 }
