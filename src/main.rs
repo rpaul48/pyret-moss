@@ -7,6 +7,7 @@ mod fingerprint;
 mod normalize;
 mod file_io;
 mod phase_i;
+mod phase_ii;
 mod cli;
 
 // Sub represents a student submission.
