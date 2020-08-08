@@ -1,6 +1,5 @@
 /* fingerprint.rs: Document fingerprinting using robust winnowing */
 
-use std::process;
 use crate::normalize::NormText;
 
 // the base value used by the hash function, usually the size of the character set
@@ -32,8 +31,7 @@ pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
     // only attempt to fingerprint if the normalized string is greater than the noise threshold
     if len > k {
         if t < k {
-            eprintln!("Error: `t` may not be less than 'k'.");
-            process::exit(1);
+            err!("`t` may not be less than `k`.");
         }
 
         // construct k-grams, a Vec<str>

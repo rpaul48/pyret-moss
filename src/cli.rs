@@ -1,7 +1,6 @@
 /* cli.rs: Functions for providing the command-line interface */
 
 use std::path::Path;
-use crate::error;
 
 // OptArgs encodes important system parameters that have default values
 // but can be set via the command line interface
@@ -52,10 +51,9 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
 
     // handle invalid arity
     if argc == 0 {
-        panic!("Program received 0 arguments, somehow");
+        panic!("program received 0 arguments, somehow");
     } else if argc == 1 {
-        error::err(&format!(
-            "usage: {} [options] <submission-dir>. See --help for more.", &args[0]));
+        err!("usage: {} [options] <submission-dir>. See --help for more.", &args[0]);
     }
 
     let mut options = OptArgs::default();   // start with default options
@@ -66,8 +64,7 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
         if let Some(arg) = next {
             arg
         } else {
-            error::err(&format!("expected an argument for {}", flag));
-            panic!();   // won't get here
+            err!("expected an argument for {}", flag);
         }
     }
 
@@ -84,7 +81,7 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
                 if let Ok(k) = k_str.parse::<i32>() {
                     options.k = k;
                 } else {
-                    error::err(&format!("invalid value for k: `{}`", k_str));
+                    err!("invalid value for k: `{}`", k_str);
                 }
             },
             "-t" => {
@@ -93,7 +90,7 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
                 if let Ok(t) = t_str.parse::<i32>() {
                     options.t = t;
                 } else {
-                    error::err(&format!("invalid value for t: `{}`", t_str));
+                    err!("invalid value for t: `{}`", t_str);
                 }
             },
             "-o" => {
@@ -110,20 +107,20 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
                 if let Ok(max_pairs_out) = max_str.parse::<i32>() {
                     options.max_pairs_out = Some(max_pairs_out);
                 } else {
-                    error::err(&format!("invalid value for --max-out: `{}`", max_str));
+                    err!("invalid value for --max-out: `{}`", max_str);
                 }
             },
             "--verbose" => options.verbose = true,
             _ => {
                 // check for unrecognized flags
                 if arg.starts_with('-') {
-                    error::err(&format!("unrecognized flag `{}`", arg));
+                    err!("unrecognized flag `{}`", arg);
                 } else if let None = sub_dir {
                     // assume this is the submissions directory
                     sub_dir = Some(&Path::new(arg));
                 } else {
                     // we already have a sub dir, this is just unexpected
-                    error::err(&format!("unexpected argument: `{}`", arg));
+                    err!("unexpected argument: `{}`", arg);
                 }
             },
         };
@@ -134,8 +131,7 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
     fn validate<F>(flag: &str, value: i32, valid: F, reminder: &str) 
         where F: Fn(i32) -> bool {
         if !valid(value) {
-            error::err(&format!(
-                "invalid value for {}: `{}` (remember: {})", flag, value, reminder));
+            err!("invalid value for {}: `{}` (remember: {})", flag, value, reminder);
         }
     }
 
@@ -145,18 +141,15 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
     validate("t", options.t, |t| t > 0 && t >= options.k, kt_remind);
 
     // validate max pairs out
-    match options.max_pairs_out {
-        Some(max) => validate("--max-out", max, |m| m > 0, 
-            "must be >0 submission pairs in output"),
-        None => (),
-    };
+    if let Some(max) = options.max_pairs_out {
+        validate("--max-out", max, |m| m > 0, "must be > 0 submission pairs in output");
+    }
 
     if let Some(dir) = sub_dir {
         // return the submissions directory & updated options
         return (dir, options);
     } else {
-        error::err("no submission directory given");
-        panic!();   // won't get here
+        err!("no submission directory given");
     }
 }
 

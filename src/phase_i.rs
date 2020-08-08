@@ -2,14 +2,12 @@
 
 use fnv::FnvHashMap;
 use std::collections::HashSet;
-use crate::{Doc, Sub};
-use crate::file_io;
-use crate::error;
 use std::io;
 use std::io::prelude::*;
 use std::fs::File;
 use std::path::Path;
-
+use crate::{Doc, Sub};
+use crate::file_io;
 use crate::fingerprint::{self, Fingerprint};
 use crate::normalize;
 
@@ -34,7 +32,7 @@ pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> io::Result<HashSet<
     let mut ignore_set = HashSet::new();
 
     if ignore_paths.len() == 0 {
-        error::err(&format!("no .arr files to ignore in `{}`", ignore_dir.display()));
+        err!("no .arr files to ignore in `{}`", ignore_dir.display());
     }
 
     for path in ignore_paths.iter() {

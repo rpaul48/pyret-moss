@@ -2,12 +2,11 @@
 extern crate regex;
 use std::path::PathBuf;
 use crate::fingerprint::Fingerprint;
-
+#[macro_use] mod error;
 mod fingerprint;
 mod normalize;
 mod file_io;
 mod phase_i;
-mod error;
 mod cli;
 
 // Sub represents a student submission.

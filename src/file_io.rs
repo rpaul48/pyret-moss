@@ -1,12 +1,10 @@
 /* file_io.rs: File I/O */
 
-use std::process;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::io;
 use crate::{Sub, Doc};
 use crate::cli::SubFileMode;
-use crate::error;
 
 // Construct a vector of PathBufs to all files in a given 
 // directory that pass the given predicate
@@ -30,9 +28,8 @@ fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>>
 fn dirs_in_dir(dir: &Path) -> Vec<PathBuf> {
     match paths_in_dir(dir, |p| p.is_dir()) {
         Ok(paths) => paths,
-        Err(_) => {
-            eprintln!("Error: Failed to read dirs in `{}`", dir.display());
-            process::exit(1);
+        Err(e) => {
+            err!("failed to read dirs in `{}`: {}", dir.display(), e);
         },
     }
 }
@@ -47,9 +44,8 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     };
     match paths_in_dir(dir, is_arr) {
         Ok(paths) => paths,
-        Err(_) => {
-            eprintln!("Error: Failed to read .arr files in `{}`", dir.display());
-            process::exit(1);
+        Err(e) => {
+            err!("failed to read .arr files in `{}`: {}", dir.display(), e);
         },
     }
 }
@@ -60,7 +56,7 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: SubFileMode) -> Vec<Sub> {
     let mut subs = Vec::new();
 
     if !sub_dir.is_dir() {  // validate submission directory
-        error::err(&format!("submission directory `{}` is not a dir", sub_dir.display()));
+        err!("submission directory `{}` is not a dir", sub_dir.display());
     }
 
     match sub_mode {
@@ -69,7 +65,7 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: SubFileMode) -> Vec<Sub> {
             let sub_files = arr_files_in_dir(sub_dir);
 
             if sub_files.len() == 0 {
-                error::err(&format!("submission directory `{}` contains no .arr files", sub_dir.display()));
+                err!("submission directory `{}` contains no .arr files", sub_dir.display());
             }
 
             // for each submission (.arr file)
@@ -87,7 +83,7 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: SubFileMode) -> Vec<Sub> {
             let sub_dirs = dirs_in_dir(sub_dir);
 
             if sub_dirs.len() == 0 {
-                error::err(&format!("submission directory `{}` contains no subdirectories", sub_dir.display()));
+                err!("submission directory `{}` contains no subdirectories", sub_dir.display());
             }
 
             // for each submission (subdirectory)
