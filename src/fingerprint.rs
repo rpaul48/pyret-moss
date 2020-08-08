@@ -1,18 +1,17 @@
 /* fingerprint.rs: Document fingerprinting using robust winnowing */
 
 use crate::normalize::NormText;
-use crate::normalize::normalize;
 
 // the base value used by the hash function, usually the size of the character set
 static BASE: i64 = 256;
 
-// the prime modulus for all hash calculations to be done under, which also represents the
-// range of possible hash values in the output of finerprint() (0, PRIME_MODULUS]
+// the prime modulus for all hash calculations to be done under, which represents the range of
+// possible hash values (0, PRIME_MODULUS]
 static PRIME_MODULUS: i64 = 2147483647;
 
 // A Fingerprint contains a hash of a k-gram within a document,
 // and the range of line numbers to which that k-gram corresponds, inclusive
-#[derive(Debug)]
+#[derive(Debug, Hash, Eq, PartialEq, Copy, Clone, PartialOrd, Ord)]
 pub struct Fingerprint {
     pub hash: i64,
     pub lines: (i32, i32)
@@ -43,13 +42,13 @@ pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
         }
 
         // rolling hash each k-gram, constructing a vector of i32s
-        let mut hashed_kgrams = rolling_hash(kgrams);
+        let hashed_kgrams = rolling_hash(kgrams);
 
         // the window size for winnowing
         let w: i32 = t - k + 1;
 
         // checks windows of hashes of length w, uses robust winnowing to select fingerprints
-        let mut fingerprint_tuples: Vec<(i64, usize)> = robust_winnow(hashed_kgrams, w as usize);
+        let fingerprint_tuples: Vec<(i64, usize)> = robust_winnow(hashed_kgrams, w as usize);
 
         // combine fingerprint tuples with original line numbers, make Fingerprint structs
         for tuple in fingerprint_tuples.iter() {
@@ -159,9 +158,9 @@ fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
         let cur_str: &str = kgrams[0];
         kgrams = kgrams[1..].to_vec();
 
-        let mut cur_first_char: char =
+        let cur_first_char: char = 
             cur_str.chars().next().unwrap().to_lowercase().next().unwrap();
-        let mut cur_last_char: char =
+        let cur_last_char: char = 
             cur_str.chars().last().unwrap().to_lowercase().next().unwrap();
 
         match prev_first_char {
@@ -251,7 +250,7 @@ mod tests {
     #[test]
     // tests hash() and rolling_hash() for empty inputs
     fn empty_input_hash() {
-        let mut empty: Vec<&str> = Vec::new();
+        let empty: Vec<&str> = Vec::new();
 
         assert_eq!(hash(""), 0);
         assert_eq!(rolling_hash(empty), vec![]);
@@ -271,9 +270,9 @@ mod tests {
     #[test]
     // tests that hash() and rolling_hash() are case insensitive
     fn case_insensitive() {
-        let mut lowercase_kgrams: Vec<&str> = vec!["this is a te", "his is a tes", "is is a test"];
-        let mut mixcase_kgrams: Vec<&str> = vec!["tHis IS a TE", "his is a tes", "IS IS A TEST"];
-        let mut uppercase_kgrams: Vec<&str> = vec!["THIS IS A TE", "HIS IS A TES", "IS IS A TEST"];
+        let lowercase_kgrams: Vec<&str> = vec!["this is a te", "his is a tes", "is is a test"];
+        let mixcase_kgrams: Vec<&str> = vec!["tHis IS a TE", "his is a tes", "IS IS A TEST"];
+        let uppercase_kgrams: Vec<&str> = vec!["THIS IS A TE", "HIS IS A TES", "IS IS A TEST"];
 
         assert_eq!(hash("a"), hash("A"));
         assert_eq!(hash("hello"), hash("HeLLo"));
@@ -284,8 +283,8 @@ mod tests {
     #[test]
     // tests that hash() and rolling_hash() consider the order of characters
     fn rearranged_characters() {
-        let mut arrange_1: Vec<i64> = rolling_hash(vec!["aba", "bab", "abb"]);
-        let mut arrange_2: Vec<i64> = rolling_hash(vec!["aab", "abb", "bba"]);
+        let arrange_1: Vec<i64> = rolling_hash(vec!["aba", "bab", "abb"]);
+        let arrange_2: Vec<i64> = rolling_hash(vec!["aab", "abb", "bba"]);
 
         assert_ne!(hash("abc"), hash("bac"));
         assert_ne!(hash("this is a test"), hash("a test this is"));
@@ -297,9 +296,9 @@ mod tests {
     #[test]
     // tests that distinct calls to identical inputs to hash() and rolling_hash() yield identical outputs
     fn equal_input_equal_output() {
-        let mut three_kgrams: Vec<&str> = vec!["abcd", "bcde", "cdef"];
-        let mut three_kgrams_hashed: Vec<i64> = rolling_hash(three_kgrams);
-        let mut three_kgrams_copy: Vec<&str> = vec!["abcd", "bcde", "cdef"];
+        let three_kgrams: Vec<&str> = vec!["abcd", "bcde", "cdef"];
+        let three_kgrams_hashed: Vec<i64> = rolling_hash(three_kgrams);
+        let three_kgrams_copy: Vec<&str> = vec!["abcd", "bcde", "cdef"];
 
         assert_eq!(hash("abcdefg"), hash("abcdefg"));
         assert_eq!(hash("@ 3 df KM34,;."), hash("@ 3 df KM34,;."));
@@ -311,7 +310,7 @@ mod tests {
     fn no_overflow() {
         let long_input: i64 = hash("The quick brown fox jumps over the lazy dog");
         let high_code_points: i64 = hash("ó { |~ û ÿ ©÷ ó { |~ û ÿ ©÷ ó { |~ û ÿ ©÷");
-        let mut large_kgrams: Vec<i64> = rolling_hash(vec!["each string is pretty long in this V",
+        let large_kgrams: Vec<i64> = rolling_hash(vec!["each string is pretty long in this V",
         "ach string is pretty long in this Ve", "ch string is pretty long in this Vec"]);
 
         assert_eq!(long_input < PRIME_MODULUS, true);
@@ -339,10 +338,10 @@ mod tests {
     #[test]
     // tests that the rolling hash produces the same hash values as the naive hash
     fn hash_vs_rolling_hash() {
-        let mut one_kgram: Vec<&str> = vec!["there is one kgram!"];
-        let mut three_kgrams: Vec<&str> = vec!["abcde", "bcdef", "cdefg"];
-        let mut special_chars: Vec<&str> = vec!["$ 1:", " 1:,", "1:,a", ":,aA"];
-        let mut spec_indiv_hashes = vec![hash("$ 1:"), hash(" 1:,"), hash("1:,a"), hash(":,aA")];
+        let one_kgram: Vec<&str> = vec!["there is one kgram!"];
+        let three_kgrams: Vec<&str> = vec!["abcde", "bcdef", "cdefg"];
+        let special_chars: Vec<&str> = vec!["$ 1:", " 1:,", "1:,a", ":,aA"];
+        let spec_indiv_hashes = vec![hash("$ 1:"), hash(" 1:,"), hash("1:,a"), hash(":,aA")];
 
         assert_eq!(rolling_hash(one_kgram), vec![hash("there is one kgram!")]);
         assert_eq!(rolling_hash(three_kgrams), vec![hash("abcde"), hash("bcdef"), hash("cdefg")]);

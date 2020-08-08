@@ -35,22 +35,21 @@ impl NormText {
 }
 
 // replacement for all identifier names
-// Note: unit tests may break if this is altered
-// (written assuming 'v')
-const NORM_IDENTIFIER: char = 'v';
+// Note: unit tests may break if this is altered (written assuming 'v')
+const UNIFORM_IDENTIFIER: char = 'v';
 
 // Remove/normalize any features from a program's text that
 // shouldn't differentiate it from other programs:
 //      1. normalize identifiers
-//      2. remove whitespace
-//      3. remove type annotations
+//      2. remove type annotations
+//      3. remove whitespace
 //      4. remove docstrings
 //      5. remove comments
 // Returns the normalized string & enough info to map parts
 // of the normalized text to line numbers in the original (LineMapping)
 pub fn normalize(program: &str) -> NormText {
     let mut head: &str = &program;          // rest of program to be processed
-    let mut norm = String::from("");        // normalized program text
+    let mut norm = String::new();           // normalized program text
     let mut norm_idx = 0;                   // next index to write to in norm text
     let mut line_ends = Vec::new();         // encodes line info (see NormText above)
 
@@ -58,28 +57,28 @@ pub fn normalize(program: &str) -> NormText {
     while !head.is_empty() {
 
         // ------- Whitespace -------
-        if let Some((mat, rest, len)) = match_whitespace(head) {
+        if let Some((mat, rest, _)) = match_whitespace(head) {
             head = rest;    // jump over whitespace
             account_for_newlines(mat, norm_idx, &mut line_ends, false);
             continue;
         }
 
         // ------- Comments -------
-        if let Some((mat, rest, len)) = match_comment(head) {
+        if let Some((mat, rest, _)) = match_comment(head) {
             head = rest;    // jump over comment
             account_for_newlines(mat, norm_idx, &mut line_ends, false);
             continue;
         }
 
         // ------- Docstrings -------
-        if let Some((mat, rest, len)) = match_docstring(head) {
+        if let Some((mat, rest, _)) = match_docstring(head) {
             head = rest;    // jump over docstring
             account_for_newlines(mat, norm_idx, &mut line_ends, false);
             continue;
         }
 
         // ------- Types -------
-        if let Some((mat, rest, len)) = match_type(head) {
+        if let Some((mat, rest, _)) = match_type(head) {
             head = rest;    // jump over annotation
             account_for_newlines(mat, norm_idx, &mut line_ends, false);
             continue;
@@ -96,12 +95,11 @@ pub fn normalize(program: &str) -> NormText {
             norm.push_str(mat); // write literal to norm
             norm_idx += len as i32;
 
-            head = rest;    // jump over literal
+            head = rest;    // move to end of literal
             continue;
         }
 
         // ------- Keywords & Identifiers -------
-        // (second to last test, because most general)
         if let Some((is_keyw, key_or_id)) = match_keyword_or_ident(head) {
             let (mat, rest, len) = key_or_id;
 
@@ -111,13 +109,13 @@ pub fn normalize(program: &str) -> NormText {
                 norm.push_str(mat); // preserve keyword
                 norm_idx += len as i32;
             } else {
-                norm.push(NORM_IDENTIFIER); // normalize identifiers
+                norm.push(UNIFORM_IDENTIFIER); // normalize identifiers
                 norm_idx += 1;
             }
             continue;
         }
 
-        // ------- Else -------
+        // ------- otherwise -------
         norm.push(head.chars().next().unwrap());    // write first char of head to norm
         norm_idx += 1;      // progress next idx to be written to
         head = &head[1..];  // progress head
@@ -210,7 +208,7 @@ fn match_type(hd: &str) -> Option<Match> {
     // Also parse arbitrary whitespace following the type (so when types
     // are removed, no whitespace artifact will be left)
     fn parse_type<'a>(head: &'a str, prefix: Match) -> Option<Match<'a>> {
-        let (pref_mat, pref_rest, pref_len) = prefix;
+        let (_, pref_rest, pref_len) = prefix;
 
         if pref_rest.starts_with('(') {
             // try complex type (match everything within balanced parens)
@@ -240,7 +238,7 @@ fn match_type(hd: &str) -> Option<Match> {
         } else {
             // try simple type
             match extract_match(pref_rest, &SIMPLE_TYPE) {
-                Some((typ_mat, typ_rest, typ_len)) => {
+                Some((_, _, typ_len)) => {
                     // combine prefix & type matches
                     let len = pref_len + typ_len;
                     Some((&head[..len], &head[len..], len))
@@ -337,9 +335,8 @@ fn account_for_newlines(slice: &str, idx: i32, le: &mut Vec<i32>, preserve_newli
 }
 
 #[cfg(test)]
-mod normalize_tests {
+mod tests {
     use super::*;
-    use std::convert::TryInto;
 
     #[test]
     fn line_number_info_preserved() {

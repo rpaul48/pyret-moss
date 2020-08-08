@@ -1,28 +1,33 @@
 #[macro_use] extern crate lazy_static;
 extern crate regex;
+use std::path::PathBuf;
+use crate::fingerprint::Fingerprint;
 
 mod fingerprint;
 mod normalize;
 mod file_io;
 mod phase_i;
 mod error;
+mod cli;
 
-/*
-    User-available parameters:
-        - ignore boilerplate code (indicate a dir)
-        - single-dir mode: submissions are assumed to be each 1 doc
-        - k: noise threshold
-        - t: guarantee threshold
-        - result location: where the program's result summary will be written (default stdout)
-        - limit max number of pairs of subs to report on in output
-*/
+// Sub represents a student submission.
+// Depending on whether input submissions are directories or
+// indiv. files, the dir_name field will be Some or None
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+pub struct Sub {
+    pub dir_name: Option<PathBuf>,
+    pub documents: Vec<Doc>
+}
 
-use phase_i::make_ignore_set;
-use std::path::Path;
+// Doc represents a file within a submission.
+// Docs are initialized as Unprocessed (contents have not yet been
+// read), and become Processed once they have been fingerprinted
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+pub enum Doc {
+    Unprocessed(PathBuf),
+    Processed(PathBuf, Vec<Fingerprint>)
+}
 
 fn main() {
-    match make_ignore_set(&Path::new("./test-dirs/ignore")) {
-        Ok(v) => println!("{:?}", v),
-        Err(e) => panic!("Error: {:?}", e),
-    };
+    
 }

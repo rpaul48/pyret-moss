@@ -1,4 +1,5 @@
 provide *
+provide-types *
 
 # Here's a data definition:
 data MyList<T>:
