@@ -1,8 +1,5 @@
 provide *
+provide-types *
 
-fun boilerplate-fun(x, y, z) -> String:
-    doc: "Does a computation"
-    a = x * y
-    b = a * z
-    b + a
-end
+include my-gdrive("docdiff-code.arr")
+include my-gdrive("docdiff-common.arr")

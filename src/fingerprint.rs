@@ -7,7 +7,7 @@ static BASE: i64 = 256;
 
 // the prime modulus for all hash calculations to be done under, which represents the range of
 // possible hash values (0, PRIME_MODULUS]
-static PRIME_MODULUS: i64 = 2147483647; // 5381;
+static PRIME_MODULUS: i64 = 2147483647;
 
 // A Fingerprint contains a hash of a k-gram within a document,
 // and the range of line numbers to which that k-gram corresponds, inclusive
@@ -42,13 +42,13 @@ pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
         }
 
         // rolling hash each k-gram, constructing a vector of i32s
-        let mut hashed_kgrams = rolling_hash(kgrams);
+        let hashed_kgrams = rolling_hash(kgrams);
 
         // the window size for winnowing
         let w: i32 = t - k + 1;
 
         // checks windows of hashes of length w, uses robust winnowing to select fingerprints
-        let mut fingerprint_tuples: Vec<(i64, usize)> = robust_winnow(hashed_kgrams, w as usize);
+        let fingerprint_tuples: Vec<(i64, usize)> = robust_winnow(hashed_kgrams, w as usize);
 
         // combine fingerprint tuples with original line numbers, make Fingerprint structs
         for tuple in fingerprint_tuples.iter() {
@@ -136,8 +136,8 @@ fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
         let cur_str: &str = kgrams[0];
         kgrams = kgrams[1..].to_vec();
 
-        let mut cur_first_char: char = cur_str.chars().next().unwrap().to_lowercase().next().unwrap();
-        let mut cur_last_char: char = cur_str.chars().last().unwrap().to_lowercase().next().unwrap();
+        let cur_first_char: char = cur_str.chars().next().unwrap().to_lowercase().next().unwrap();
+        let cur_last_char: char = cur_str.chars().last().unwrap().to_lowercase().next().unwrap();
 
         match prev_first_char {
             // if the current iteration is the first string being hashed

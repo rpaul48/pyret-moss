@@ -1,7 +1,4 @@
-provide *
-provide-types *
-
-# Here's a data definition:
+# Shared list definition that everyone gets as boilerplate
 data MyList<T>:
 	| my-empty
 	| my-link(first :: T, rest :: List<T>)

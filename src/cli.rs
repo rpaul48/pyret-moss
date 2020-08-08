@@ -166,7 +166,7 @@ fn print_help() {
     std::process::exit(0);
 }
 
-static HELP_MSG: &str = "\
+const HELP_MSG: &str = "\
 Copy-detection for Pyret
 
 USAGE:
