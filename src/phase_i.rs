@@ -11,17 +11,29 @@ use crate::file_io;
 use crate::fingerprint::{self, Fingerprint};
 use crate::normalize;
 
-// Read a file's contents into memory & normalize/fingerprint it
+// Read a file's contents into memory, count its number of lines,
+// and normalize/fingerprint it
 // k, t are fingerprint params
-fn read_and_fingerprint(path: &Path, k: i32, t: i32) -> io::Result<Vec<Fingerprint>> {
+fn analyze_file(path: &Path, k: i32, t: i32) -> io::Result<(Vec<Fingerprint>, usize)> {
     // read file text
     let mut file = File::open(path.to_str().unwrap())?;
     let mut contents = String::new();
     file.read_to_string(&mut contents)?;
 
+    // count number of lines in file
+    let lines = count_lines(contents.as_str());
+
     // normalize & fingerprint
     let norm = normalize::normalize(&contents[..]);
-    Ok(fingerprint::fingerprint(norm, k, t))
+    let fps = fingerprint::fingerprint(norm, k, t);
+
+    Ok((fps, lines))
+}
+
+// Count number of lines in a file (newlines + 1)
+fn count_lines(s: &str) -> usize {
+    // from https://llogiq.github.io/2016/09/24/newline.html
+    s.as_bytes().iter().filter(|&&c| c == b'\n').count() + 1
 }
 
 // Construct a set of fingerprints to ignore by
@@ -36,7 +48,7 @@ pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> io::Result<HashSet<
     }
 
     for path in ignore_paths.iter() {
-        let fps = read_and_fingerprint(path, k, t)?;
+        let (fps, _) = analyze_file(path, k, t)?;
 
         // add all fingerprint hashes to ignore set
         for fp in fps.iter() { ignore_set.insert(fp.hash); }
@@ -60,10 +72,10 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
         for doc in sub.documents.iter_mut() {
             let doc_path = match doc {
                 Doc::Unprocessed(p) => p,
-                Doc::Processed(_, _) => panic!("Already processed document: {:?}", doc),
+                Doc::Processed(_, _, _) => panic!("Already processed document: {:?}", doc),
             };
 
-            let fps = read_and_fingerprint(doc_path, k, t)?;
+            let (fps, lines) = analyze_file(doc_path, k, t)?;
 
             // filter out ignored fingerprints, if any
             let fps = match ignore {
@@ -79,7 +91,7 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
             for fp in fps.iter() { sub_fps.insert(fp.clone()); }
 
             // update Doc at this position to include fingerprints
-            *doc = Doc::Processed(doc_path.to_path_buf(), fps);
+            *doc = Doc::Processed(doc_path.to_path_buf(), fps, lines);
         }
 
         for fp in sub_fps.iter() {
@@ -110,12 +122,14 @@ mod tests {
                 Fingerprint { hash: 678832442, lines: (2, 2) }, 
                 Fingerprint { hash: 691697194, lines: (2, 3) }, 
                 Fingerprint { hash: 712402286, lines: (3, 4) }];
+            let exp_lines = 4;
 
             // k=4, t=6
-            let out = read_and_fingerprint(
+            let (out_fps, out_lines) = analyze_file(
                 &Path::new(&format!("{}{}", dir, "a.arr")), 4, 6)?;
 
-            assert_eq!(exp_fps, out);
+            assert_eq!(exp_fps, out_fps);
+            assert_eq!(exp_lines, out_lines);
         }
         {
             let exp_fps = vec![
@@ -123,12 +137,14 @@ mod tests {
                 Fingerprint { hash: 711221822, lines: (1, 3) }, 
                 Fingerprint { hash: 981235476, lines: (3, 4) }, 
                 Fingerprint { hash: 678832721, lines: (4, 5) }];
+            let exp_lines = 5;
 
             // k=5, t=10
-            let out = read_and_fingerprint(
+            let (out_fps, out_lines) = analyze_file(
                 &Path::new(&format!("{}{}", dir, "b.arr")), 5, 10)?;
 
-            assert_eq!(exp_fps, out);
+            assert_eq!(exp_fps, out_fps);
+            assert_eq!(exp_lines, out_lines);
         }
 
         Ok(())
@@ -216,7 +232,8 @@ mod tests {
                         Fingerprint { hash: 30182096, lines: (16, 16) },
                         Fingerprint { hash: 14933625, lines: (17, 18) }, 
                         Fingerprint { hash: 73943364, lines: (19, 19) }
-                    ])
+                    ],
+                    20)
             ]
         };
 
@@ -229,7 +246,8 @@ mod tests {
                         Fingerprint { hash: 5421077, lines: (8, 10) }, 
                         Fingerprint { hash: 14933625, lines: (13, 14) }, 
                         Fingerprint { hash: 73943364, lines: (15, 15) }
-                    ])
+                    ],
+                    16)
             ]
         };
 
@@ -242,8 +260,6 @@ mod tests {
         exp_out.insert(73943364, set(&[&proc_sub1, &proc_sub2]));
 
         assert_eq!(out, exp_out);
-    
-
 
         Ok(())
     }
@@ -280,7 +296,8 @@ mod tests {
                         Fingerprint { hash: 762608186, lines: (2, 2) },
                         Fingerprint { hash: 711221850, lines: (2, 5) }, 
                         Fingerprint { hash: 678833506, lines: (7, 7) }
-                    ]),
+                    ],
+                    8),
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub1/main.arr"),
                     vec![
@@ -291,7 +308,8 @@ mod tests {
                         Fingerprint { hash: 674572885, lines: (7, 7) }, 
                         Fingerprint { hash: 674703957, lines: (8, 8) }, 
                         Fingerprint { hash: 674050581, lines: (9, 9) }
-                    ])
+                    ],
+                    11)
             ]
         };
         let proc_sub2 = Sub {
@@ -302,7 +320,8 @@ mod tests {
                     vec![
                         Fingerprint { hash: 711221822, lines: (1, 3) }, 
                         Fingerprint { hash: 678833506, lines: (8, 8) }
-                    ]),
+                    ],
+                    10),
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub2/main.arr"),
                     vec![
@@ -315,7 +334,8 @@ mod tests {
                         Fingerprint { hash: 674703957, lines: (11, 11) }, 
                         Fingerprint { hash: 674050581, lines: (12, 12) }, 
                         Fingerprint { hash: 674376277, lines: (13, 13) }
-                    ])
+                    ],
+                    14)
             ]
         };
 
@@ -382,7 +402,8 @@ mod tests {
                         Fingerprint { hash: 712012601, lines: (1, 2) }, 
                         Fingerprint { hash: 762608186, lines: (2, 2) },
                         Fingerprint { hash: 678833506, lines: (7, 7) }
-                    ]),
+                    ],
+                    8),
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub1/main.arr"),
                     vec![
@@ -390,7 +411,8 @@ mod tests {
                         Fingerprint { hash: 674572885, lines: (7, 7) }, 
                         Fingerprint { hash: 674703957, lines: (8, 8) }, 
                         Fingerprint { hash: 674050581, lines: (9, 9) }
-                    ])
+                    ],
+                    11)
             ]
         };
         let proc_sub2 = Sub {
@@ -400,7 +422,8 @@ mod tests {
                     PathBuf::from("test-dirs/test/multi-file/sub2/common.arr"),
                     vec![
                         Fingerprint { hash: 678833506, lines: (8, 8) }
-                    ]),
+                    ],
+                    10),
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub2/main.arr"),
                     vec![
@@ -409,7 +432,8 @@ mod tests {
                         Fingerprint { hash: 674703957, lines: (11, 11) }, 
                         Fingerprint { hash: 674050581, lines: (12, 12) }, 
                         Fingerprint { hash: 674376277, lines: (13, 13) }
-                    ])
+                    ],
+                    14)
             ]
         };
 
