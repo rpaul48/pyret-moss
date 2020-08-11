@@ -3,7 +3,7 @@
 use crate::{Sub, Doc};
 use std::collections::HashSet;
 use std::collections::BTreeSet;
-use std::path::Path;
+use std::path::{Path, PathBuf, Component};
 use crate::cli::SubFileMode;
 use crate::phase_ii::SubPair;
 use prettytable::Table;
@@ -38,30 +38,77 @@ fn render_results(sub_pairs: Vec<SubPair>, out_file: Option<&Path>, mode: SubFil
 
 // Generate a table summarizing fingerprint matches for a given pair of submissions
 fn pair_table(pair: &SubPair, mode: &SubFileMode) -> Table {
-    unimplemented!();
-    // let mut t = Table::new();
+    let mut t = Table::new();
 
-    // let (a_name, b_name) = match mode {
-    //     SubFileMode::Multi => 
-    //     SubFileMode::Single => 
-    // };
+    // get each submission's "name" based on submission mode
+    let (a_name, b_name) = match mode {
+        SubFileMode::Multi => {
+            // retrieve the name of the bottom-most level dir from a pathbuf
+            fn lowest_dir(p: &PathBuf) -> &str {
+                let comp = p.components().last().unwrap();
 
-    /*
-        let mut t = table::new
+                // extract the string inside
+                if let Component::Normal(os_str) = comp {
+                    os_str.to_str().unwrap()
+                } else {
+                    panic!("failed to retrieve dir component from path {}", p.display());
+                }
+            }
 
-        add title row to table (if single file mode, use file name as submission name)
+            // format a multi-file submission's dir name for use in output tables
+            fn dir_name(dir_opt: Option<&PathBuf>) -> String {
+                format!("{}/", lowest_dir(dir_opt.unwrap()))
+            }
 
-        let match_n = 1;
+            // use submission dirnames as their "names"
+            (dir_name(pair.a.dir_name.as_ref()), dir_name(pair.b.dir_name.as_ref()))
+        }
+        SubFileMode::Single => {
+            if pair.a.documents.is_empty() || pair.b.documents.is_empty() {
+                panic!("submission with no documents: {:?}", pair);
+            }
 
-        for hash in fp_hashes (ordered):
-            sub1_entry = format_line_numbers(sub1, hash, mode).join(\n)
-            sub2_entry = format_line_numbers(sub2, hash, mode).join(\n)
+            // extract the filename from a path
+            fn file_name(p: &PathBuf) -> String {
+                String::from(p.file_name().unwrap().to_str().unwrap())
+            }
 
-            add row![match_n, sub1_entry, sub2_entry]
-            match_n++
-        
-        return t
-    */
+            // extract file names of each submissions' singular doc
+            match (&pair.a.documents[0], &pair.b.documents[0]) {
+                (Doc::Processed(a_path, _), Doc::Processed(b_path, _)) => {
+                    (file_name(a_path), file_name(b_path))
+                },
+                _ => { panic!("unprocessed document encountered in {:?}", pair); },
+            }
+        }
+    };
+
+    let a_title = format!("{} ({}%)", a_name, pair.a_percent);
+    let b_title = format!("{} ({}%)", b_name, pair.b_percent);
+
+    // add title row: submission names & their content match percentages
+    t.add_row(row!["", Fcbic->a_title, Fcbic->b_title]);
+
+    let mut match_n = 1;    // match number (for leftmost column)
+
+    // order hashes for predictability
+    let mut ordered_hashes: Vec<i64> = pair.matches.iter().cloned().collect();
+    ordered_hashes.sort();
+
+    // for each shared hash
+    for hash in ordered_hashes.iter() {
+        // extract file/line number info for fingerprints with 
+        // this hash in each submission
+        let a_entry = format_line_numbers(&pair.a, *hash, mode).join("\n");
+        let b_entry = format_line_numbers(&pair.b, *hash, mode).join("\n");
+
+        // add a row for this match
+        t.add_row(row![bc->match_n, a_entry, b_entry]);
+
+        match_n += 1;
+    }
+
+    return t;   // constructed table for this pair
 }
 
 // Generate a formatted string describing the lines (/files if multi-file
@@ -271,7 +318,7 @@ mod tests {
                 [bc->"3", "lines 4-5, 11-22", "lines 17-29"] // fp 28
             );
 
-            assert_eq!(pair_table(&sp, &SubFileMode::Multi), exp_table);
+            assert_eq!(pair_table(&sp, &SubFileMode::Single), exp_table);
         }
     }
 
