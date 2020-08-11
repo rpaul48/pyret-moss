@@ -35,79 +35,79 @@ impl Eq for SubPair<'_> {}
 fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
     -> Vec<SubPair> {
 
-        // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes
-        let mut pairs_to_hashes: HashMap<BTreeSet<&Sub>, HashSet<i64>> = HashMap::new();
+    // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes
+    let mut pairs_to_hashes: HashMap<BTreeSet<&Sub>, HashSet<i64>> = HashMap::new();
 
-        // the highest HashSet<i64> size value in the pairs_to_hashes map, to be updated
-        let mut max_num_hashes: usize = 0;
+    // the highest HashSet<i64> size value in the pairs_to_hashes map, to be updated
+    let mut max_num_hashes: usize = 0;
 
-        // iterate through hash_to_subs by key
-        for (hash, subs) in hash_to_subs {
-            // if the current key has a value containing more than one entry
-            let subs_len: usize = subs.len();
-            if subs_len > 1 {
+    // iterate through hash_to_subs by key
+    for (hash, subs) in hash_to_subs {
+        // if the current key has a value containing more than one entry
+        let subs_len: usize = subs.len();
+        if subs_len > 1 {
 
-                // get all possible pairs of submissions within subs
-                let ordered_subs: Vec<&&Sub> = Vec::from_iter(subs.iter());
-                let mut i: usize = 0;
+            // get all possible pairs of submissions within subs
+            let ordered_subs: Vec<&&Sub> = Vec::from_iter(subs.iter());
+            let mut i: usize = 0;
 
-                while i < (subs_len - 1) {
-                    let mut j: usize = i + 1;
-                    while j < (subs_len) {
-                        // the current pair of submissions
-                        let mut sub_btset: BTreeSet<&Sub> = BTreeSet::new();
-                        sub_btset.insert(*ordered_subs[i]);
-                        sub_btset.insert(*ordered_subs[j]);
+            while i < (subs_len - 1) {
+                let mut j: usize = i + 1;
+                while j < (subs_len) {
+                    // the current pair of submissions
+                    let mut sub_btset: BTreeSet<&Sub> = BTreeSet::new();
+                    sub_btset.insert(*ordered_subs[i]);
+                    sub_btset.insert(*ordered_subs[j]);
 
-                            // update max_num_hashes if the size of the current value set is
-                            // larger than the current value
-                            let mut num_hashes: usize = 0;
-                            let cur_val: Option<&HashSet<i64>> = pairs_to_hashes.get(&sub_btset);
-                            match cur_val {
-                                None => {}
-                                Some(set) => { num_hashes = set.len(); }
-                            }
+                        // update max_num_hashes if the size of the current value set is
+                        // larger than the current value
+                        let mut num_hashes: usize = 0;
+                        let cur_val: Option<&HashSet<i64>> = pairs_to_hashes.get(&sub_btset);
+                        match cur_val {
+                            None => {}
+                            Some(set) => { num_hashes = set.len(); }
+                        }
 
-                            if num_hashes > max_num_hashes {
-                                max_num_hashes = num_hashes;
-                            }
+                        if num_hashes > max_num_hashes {
+                            max_num_hashes = num_hashes;
+                        }
 
-                            // if sub_pair is not already a key in pairs_to_hashes, add it and
-                            // make it map to a set containing hash; otherwise, add hash to the
-                            // set sub_pair already maps to
-                            pairs_to_hashes.entry(sub_btset)
-                                .or_insert_with(HashSet::new)
-                                .insert(hash);
-                        j += 1;
-                    }
-                    i += 1;
+                        // if sub_pair is not already a key in pairs_to_hashes, add it and
+                        // make it map to a set containing hash; otherwise, add hash to the
+                        // set sub_pair already maps to
+                        pairs_to_hashes.entry(sub_btset)
+                            .or_insert_with(HashSet::new)
+                            .insert(hash);
+                    j += 1;
                 }
+                i += 1;
             }
         }
+    }
 
-        // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
-        // to subpairs
-        let mut subpairs: Vec<SubPair> = Vec::new();
+    // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
+    // to subpairs
+    let mut subpairs: Vec<SubPair> = Vec::new();
 
-        for (sub_btset, matching_hashes) in pairs_to_hashes {
-            let mut sub_btset_iter = sub_btset.iter();
-            let num_hashes: usize = matching_hashes.len();
+    for (sub_btset, matching_hashes) in pairs_to_hashes {
+        let mut sub_btset_iter = sub_btset.iter();
+        let num_hashes: usize = matching_hashes.len();
 
-            let sp: SubPair = SubPair {
-                a: sub_btset_iter.next().unwrap(),
-                a_percent: 0.0,
-                b: sub_btset_iter.next().unwrap(),
-                b_percent: 0.0,
-                matches: matching_hashes,
-                percentile: (num_hashes / max_num_hashes) as f64
-            };
+        let sp: SubPair = SubPair {
+            a: sub_btset_iter.next().unwrap(),
+            a_percent: 0.0,
+            b: sub_btset_iter.next().unwrap(),
+            b_percent: 0.0,
+            matches: matching_hashes,
+            percentile: (num_hashes / max_num_hashes) as f64
+        };
 
-            subpairs.push(sp);
-        }
+        subpairs.push(sp);
+    }
 
-        // sort the pair_hash_tuples vec by descending number of matches
-        subpairs.sort_by(|a, b| a.matches.len().cmp(&b.matches.len()));
+    // sort the pair_hash_tuples vec by descending number of matches
+    subpairs.sort_by(|a, b| a.matches.len().cmp(&b.matches.len()));
 
-        // return the populated, sorted output
-        subpairs
+    // return the populated, sorted output
+    subpairs
 }
