@@ -5,16 +5,15 @@ use std::collections::HashSet;
 use std::collections::BTreeSet;
 use std::path::Path;
 use crate::cli::SubFileMode;
+use crate::phase_ii::SubPair;
 use prettytable::Table;
 
 // number of results to display before prompting the user to continue
 const RESULT_BUFFER_SIZE: i32 = 50; 
 
-// Given a map from sub pairs to fingerprint hashes shared between them,
-// ordered by amount of overlap, render a message to the user (to stdout or
-// the given file) summarizing the overlaps
-fn render_results(pairs_to_hashes: Vec<(BTreeSet<&Sub>, HashSet<i64>)>, 
-    out_file: Option<&Path>, mode: SubFileMode) {
+// Given a vector of matched submission pairs ordered by amount of overlap, 
+// render a message (to stdout or the given file) summarizing the overlaps
+fn render_results(sub_pairs: Vec<SubPair>, out_file: Option<&Path>, mode: SubFileMode) {
     unimplemented!();
     /*
         if Some out_file: redirect println! temporarily
@@ -38,8 +37,15 @@ fn render_results(pairs_to_hashes: Vec<(BTreeSet<&Sub>, HashSet<i64>)>,
 }
 
 // Generate a table summarizing fingerprint matches for a given pair of submissions
-fn pair_table(sub1: &Sub, sub2: &Sub, fp_hashes: &HashSet<i64>, mode: SubFileMode) -> Table {
+fn pair_table(pair: &SubPair, mode: &SubFileMode) -> Table {
     unimplemented!();
+    // let mut t = Table::new();
+
+    // let (a_name, b_name) = match mode {
+    //     SubFileMode::Multi => 
+    //     SubFileMode::Single => 
+    // };
+
     /*
         let mut t = table::new
 
@@ -47,7 +53,7 @@ fn pair_table(sub1: &Sub, sub2: &Sub, fp_hashes: &HashSet<i64>, mode: SubFileMod
 
         let match_n = 1;
 
-        for hash in fp_hashes:
+        for hash in fp_hashes (ordered):
             sub1_entry = format_line_numbers(sub1, hash, mode).join(\n)
             sub2_entry = format_line_numbers(sub2, hash, mode).join(\n)
 
@@ -163,6 +169,111 @@ mod tests {
     use super::*;
     use crate::fingerprint::Fingerprint;
     use std::path::PathBuf;
+
+    #[test]
+    fn test_pair_table() {
+        {
+            let a = Sub {
+                dir_name: Some(PathBuf::from("sub1/")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from("sub1/doc1.arr"), vec![
+                        Fingerprint { hash: 17, lines: (1, 3) },
+                        Fingerprint { hash: 20, lines: (5, 5) },
+                        Fingerprint { hash: 17, lines: (6, 10) },
+                        Fingerprint { hash: 11, lines: (10, 11) },
+                        Fingerprint { hash: 11, lines: (12, 15) }
+                    ]),
+                    Doc::Processed(PathBuf::from("sub1/doc2.arr"), vec![
+                        Fingerprint { hash: 51, lines: (21, 24) },
+                        Fingerprint { hash: 20, lines: (25, 30) },
+                        Fingerprint { hash: 17, lines: (44, 57) }
+                    ])
+                ]
+            };
+            let b = Sub {
+                dir_name: Some(PathBuf::from("sub2/")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from("sub2/doc1.arr"), vec![
+                        Fingerprint { hash: 11, lines: (5, 5) },
+                        Fingerprint { hash: 17, lines: (8, 12) },
+                        Fingerprint { hash: 40, lines: (12, 12) },
+                        Fingerprint { hash: 11, lines: (17, 30) },
+                        Fingerprint { hash: 33, lines: (29, 34) }
+                    ]),
+                    Doc::Processed(PathBuf::from("sub2/doc2.arr"), vec![
+                        Fingerprint { hash: 12, lines: (3, 4) },
+                        Fingerprint { hash: 28, lines: (4, 4) },
+                        Fingerprint { hash: 20, lines: (8, 10) }
+                    ])
+                ]
+            };
+            let matches: HashSet<i64> = [11, 17, 20].iter().cloned().collect();
+
+            let sp = SubPair {
+                a: &a,
+                a_percent: 45.,
+                b: &b,
+                b_percent: 78.,
+                matches: matches,
+                percentile: 55.
+            };
+
+            let exp_table = table!(
+                ["", Fcbic->"sub1/ (45%)", Fcbic->"sub2/ (78%)"],
+                [bc->"1", "doc1.arr lines 10-15", "doc1.arr lines 5, 17-30"],   // fp 11
+                [bc->"2", "doc1.arr lines 1-3, 6-10\ndoc2.arr lines 44-57", "doc1.arr lines 8-12"], // fp 17
+                [bc->"3", "doc1.arr line 5\ndoc2.arr lines 25-30", "doc2.arr lines 8-10"] // fp 20
+            );
+
+            assert_eq!(pair_table(&sp, &SubFileMode::Multi), exp_table);
+        }
+        {
+            let a = Sub {
+                dir_name: None,
+                documents: vec![
+                    Doc::Processed(PathBuf::from("submissions/sub1.arr"), vec![
+                        Fingerprint { hash: 28, lines: (4, 5) },
+                        Fingerprint { hash: 12, lines: (5, 5) },
+                        Fingerprint { hash: 28, lines: (11, 15) },
+                        Fingerprint { hash: 28, lines: (16, 19) },
+                        Fingerprint { hash: 28, lines: (18, 22) },
+                        Fingerprint { hash: 17, lines: (30, 31) }
+                    ])
+                ]
+            };
+            let b = Sub {
+                dir_name: None,
+                documents: vec![
+                    Doc::Processed(PathBuf::from("submissions/sub2.arr"), vec![
+                        Fingerprint { hash: 31, lines: (9, 15) },
+                        Fingerprint { hash: 28, lines: (17, 17) },
+                        Fingerprint { hash: 28, lines: (17, 29) },
+                        Fingerprint { hash: 17, lines: (30, 31) },
+                        Fingerprint { hash: 12, lines: (38, 42) }
+                    ])
+                ]
+            };
+            let matches: HashSet<i64> = [12, 17, 28].iter().cloned().collect();
+
+            let sp = SubPair {
+                a: &a,
+                a_percent: 22.,
+                b: &b,
+                b_percent: 31.,
+                matches: matches,
+                percentile: 55.
+            };
+
+            let exp_table = table!(
+                ["", Fcbic->"sub1.arr (22%)", Fcbic->"sub2.arr (31%)"],
+                [bc->"1", "line 5", "lines 38-42"],   // fp 12
+                [bc->"2", "lines 30-31", "lines 30-31"], // fp 17
+                [bc->"3", "lines 4-5, 11-22", "lines 17-29"] // fp 28
+            );
+
+            assert_eq!(pair_table(&sp, &SubFileMode::Multi), exp_table);
+        }
+    }
 
     #[test]
     fn test_format_line_numbers() {
