@@ -45,7 +45,6 @@ fn render_results(subs: Vec<Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMode, o
 // Extract a "name" for a submission (for use in output) based on the sub mode: 
 // - single-file: subs are named by their only document's filename
 // - multi-file: subs are named by the dir that contains their document files
-// Uses a cache to avoid recomputing submission names
 fn sub_name(sub: &Sub, mode: &SubFileMode) -> String {
     match mode {
         SubFileMode::Multi => {
@@ -222,8 +221,7 @@ mod tests {
 
     #[test]
     fn test_sub_name() {
-        let mode = SubFileMode::Multi;
-
+        // multi-file submissions
         {
             let sub = Sub {
                 dir_name: Some(PathBuf::from("all-subs/sub-abcd/")),
@@ -232,7 +230,7 @@ mod tests {
                     Doc::Processed(PathBuf::from("all-subs/sub-abcd/tests.arr"), vec![])
                 ]
             };
-            let name = sub_name(&sub, &mode);
+            let name = sub_name(&sub, &SubFileMode::Multi);
             let exp_name = String::from("sub-abcd/");
             assert_eq!(name, exp_name);
         }
@@ -244,7 +242,7 @@ mod tests {
                     Doc::Processed(PathBuf::from("all-subs/sub-xyz/tests.arr"), vec![])
                 ]
             };
-            let name = sub_name(&sub, &mode);
+            let name = sub_name(&sub, &SubFileMode::Multi);
             let exp_name = String::from("sub-xyz/");
             assert_eq!(name, exp_name);
         }
@@ -257,8 +255,34 @@ mod tests {
                 ]
             };
 
-            let name = sub_name(&sub, &mode);
+            let name = sub_name(&sub, &SubFileMode::Multi);
             let exp_name = String::from("sub-lmn/");
+            assert_eq!(name, exp_name);
+        }
+
+        // single-file submissions
+        {
+            let sub = Sub {
+                dir_name: None,
+                documents: vec![
+                    Doc::Processed(PathBuf::from("all-subs/submissionA.arr"), vec![])
+                ]
+            };
+
+            let name = sub_name(&sub, &SubFileMode::Single);
+            let exp_name = String::from("submissionA.arr");
+            assert_eq!(name, exp_name);
+        }
+        {
+            let sub = Sub {
+                dir_name: None,
+                documents: vec![
+                    Doc::Processed(PathBuf::from("~/Desktop/nested/dirs/all-subs/this-is-the-sub-name.arr"), vec![])
+                ]
+            };
+
+            let name = sub_name(&sub, &SubFileMode::Single);
+            let exp_name = String::from("this-is-the-sub-name.arr");
             assert_eq!(name, exp_name);
         }
     }
