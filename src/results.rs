@@ -1,7 +1,7 @@
 /* results.rs: Render findings of overlap between submissions, if any */
 
 use crate::{Sub, Doc};
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf, Component};
 use crate::cli::SubFileMode;
@@ -13,35 +13,41 @@ const RESULT_BUFFER_SIZE: i32 = 50;
 
 // Given a vector of matched submission pairs ordered by amount of overlap, 
 // render a message (to stdout or the given file) summarizing the overlaps
-fn render_results(sub_pairs: Vec<SubPair>, out_file: Option<&Path>, mode: SubFileMode) {
+fn render_results(subs: Vec<Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>) {
     unimplemented!();
     /*
         if Some out_file: redirect println! temporarily
 
-        if pairs_to_hashes is empty
+        if sub_pairs is empty
             log "Aye, no overlap was found" & exit
 
         log "Avast ye, there be submission overlap!"
 
-        for each (i, sub1, sub2) in pairs_to_hashes enumerate
+        cache = HashMap::new
+        for each sub:
+            memoize name in cache
 
-            if i > 0 & i % RESULT_BUFFER_SIZE == 0
+        for each (i, pair) in sub_pairs enumerate
+
+            if i > 0 && i % RESULT_BUFFER_SIZE == 0
                 pause for stdin to confirm
-                if 'n', exit
 
-            table = pair_table(sub1, sub2, fp_hashes)
+            a_name = sub_name(pair.a, ...)
+            b_name = sub_name(pair.b, ...)
 
-            log "sub1/ and sub2/: 3 matches" depending on fp_hashes.len()
+            table = pair_table(pair, a_name, b_name, mode)
+
+            log "sub1/ and sub2/: 3 matches" depending on pair.matches.len()
             table.printstd()
     */
 }
 
-// Generate a table summarizing fingerprint matches for a given pair of submissions
-fn pair_table(pair: &SubPair, mode: &SubFileMode) -> Table {
-    let mut t = Table::new();
-
-    // get each submission's "name" based on submission mode
-    let (a_name, b_name) = match mode {
+// Extract a "name" for a submission (for use in output) based on the sub mode: 
+// - single-file: subs are named by their only document's filename
+// - multi-file: subs are named by the dir that contains their document files
+// Uses a cache to avoid recomputing submission names
+fn sub_name(sub: &Sub, mode: &SubFileMode) -> String {
+    match mode {
         SubFileMode::Multi => {
             // retrieve the name of the bottom-most level dir from a pathbuf
             fn lowest_dir(p: &PathBuf) -> &str {
@@ -55,17 +61,12 @@ fn pair_table(pair: &SubPair, mode: &SubFileMode) -> Table {
                 }
             }
 
-            // format a multi-file submission's dir name for use in output tables
-            fn dir_name(dir_opt: Option<&PathBuf>) -> String {
-                format!("{}/", lowest_dir(dir_opt.unwrap()))
-            }
-
-            // use submission dirnames as their "names"
-            (dir_name(pair.a.dir_name.as_ref()), dir_name(pair.b.dir_name.as_ref()))
+            // use multifile submission's dirname as its "name"
+            format!("{}/", lowest_dir(sub.dir_name.as_ref().unwrap()))
         }
         SubFileMode::Single => {
-            if pair.a.documents.is_empty() || pair.b.documents.is_empty() {
-                panic!("submission with no documents: {:?}", pair);
+            if sub.documents.is_empty() {
+                panic!("submission with no documents: {:?}", sub);
             }
 
             // extract the filename from a path
@@ -74,15 +75,19 @@ fn pair_table(pair: &SubPair, mode: &SubFileMode) -> Table {
             }
 
             // extract file names of each submissions' singular doc
-            match (&pair.a.documents[0], &pair.b.documents[0]) {
-                (Doc::Processed(a_path, _), Doc::Processed(b_path, _)) => {
-                    (file_name(a_path), file_name(b_path))
-                },
-                _ => { panic!("unprocessed document encountered in {:?}", pair); },
+            match &sub.documents[0] {
+                Doc::Processed(path, _) => file_name(path),
+                _ => { panic!("unprocessed document encountered in {:?}", sub.documents[0]); },
             }
         }
-    };
+    }
+}
 
+// Generate a table summarizing fingerprint matches for a given pair of submissions
+fn pair_table(pair: &SubPair, names: (&String, &String), mode: &SubFileMode) -> Table {
+    let mut t = Table::new();
+
+    let (a_name, b_name) = names;
     let a_title = format!("{} ({}%)", a_name, pair.a_percent);
     let b_title = format!("{} ({}%)", b_name, pair.b_percent);
 
@@ -111,7 +116,7 @@ fn pair_table(pair: &SubPair, mode: &SubFileMode) -> Table {
     return t;   // constructed table for this pair
 }
 
-// Generate a formatted string describing the lines (/files if multi-file
+// Generate a vector of strings describing the lines (/files if multi-file
 // submission) on which the indicated fingerprint occurs
 fn format_line_numbers(sub: &Sub, hash: i64, mode: &SubFileMode) -> Vec<String> {
     let mut formatted = Vec::new();
@@ -122,26 +127,25 @@ fn format_line_numbers(sub: &Sub, hash: i64, mode: &SubFileMode) -> Vec<String> 
 
             // write doc filename to doc line in multi-file mode
             if let SubFileMode::Multi = mode {
-                let fname = path.file_name().unwrap();
-                doc_line.push_str(&format!("{} ", fname.to_str().unwrap()));
+                let fname = path.file_name().unwrap().to_str().unwrap();
+                doc_line.push_str(&format!("{} ", fname));
             }
 
-            let lines = get_lines(doc, hash);   // get line ranges associated with this hash
-
-            if lines.is_empty() { continue; }   // nothing to write
+            let matched_lines = get_lines(doc, hash);   // get line ranges associated with this hash
+            if matched_lines.is_empty() { continue; }   // skip if nothing to write
 
             // depending on number of lines found, write 'lines' or 'line'
-            let (start, end) = lines[0];
-            if lines.len() > 1 || (end - start > 0) {
+            let (start, end) = matched_lines[0];
+            if matched_lines.len() > 1 || (end - start > 0) {
                 doc_line.push_str("lines ");
             } else {
                 doc_line.push_str("line ");
             }
 
-            let len = lines.len();
+            let len = matched_lines.len();  // cache number of matched lines
 
             // for each line range
-            for (i, range) in lines.iter().enumerate() {
+            for (i, range) in matched_lines.iter().enumerate() {
                 let suffix = if i < len - 1 { ", " } else { "" };  // commas delimit ranges
                 let (st, en) = range;
 
@@ -157,47 +161,46 @@ fn format_line_numbers(sub: &Sub, hash: i64, mode: &SubFileMode) -> Vec<String> 
             formatted.push(doc_line);
 
         } else {
-            panic!("unprocessed document encountered in format_line_numbers");
+            panic!("unprocessed document encountered in format_line_numbers: {:?}", doc);
         }
     }
 
     formatted
 }
 
-// Construct a list of line ranges of all fingerprints in this doc
-// that have the given hash
+// Construct a list of line ranges of all fingerprints in this doc 
+// that have the given hash, combining overlapping/consecutive ranges
 fn get_lines(doc: &Doc, hash: i64) -> Vec<(i32, i32)> {
-    // insert a line range into a vector of line ranges, ensuring that
+    // Insert a line range into a vector of line ranges, ensuring that
     // overlapping/consecutive ranges are coalesced into one 
-    // (ie (1,4) & (3,5) -> (1,5) and (2,5) & (6,10) -> (2,10))
+    // (eg (1,4) & (3,5) -> (1,5) and (2,5) & (6,10) -> (2,10))
     // (assumes inserting into an *already coalesced* vector)
     fn coalesce_insert(lines: &mut Vec<(i32, i32)>, new: (i32, i32)) {
+        // if empty, nothing to coalesce
         if lines.is_empty() {
             lines.push(new);
         } else {
             // check last el for need to coalesce
-            if let Some(lst) = lines.pop() {
-                let (lst_start, lst_end) = lst;
-                let (new_start, new_end) = new;
+            let lst = lines.pop().unwrap();
+            let (lst_start, lst_end) = lst;
+            let (new_start, new_end) = new;
 
-                // if new range overlaps or begins immediately after the
-                // end of the last range, coalesce
-                if new_start <= lst_end + 1 {
-                    lines.push((lst_start, new_end));
-                } else {
-                    lines.push(lst);
-                    lines.push(new);
-                }
+            // if new range overlaps or begins immediately after the
+            // end of the last range, coalesce
+            if new_start <= lst_end + 1 {
+                lines.push((lst_start, new_end));
             } else {
-                panic!("failed to pop from lines vector (get_lines)");
+                lines.push(lst);
+                lines.push(new);
             }
         }
     }
 
+    // extract document path/fingerprints
     if let Doc::Processed(path, fps) = doc {
         let mut lines = Vec::new();
 
-        // add lines for fingerprints that match the given hash
+        // add line ranges for fingerprints that match the given hash
         for fp in fps.iter() {
             if fp.hash == hash {
                 coalesce_insert(&mut lines, fp.lines);
@@ -206,7 +209,7 @@ fn get_lines(doc: &Doc, hash: i64) -> Vec<(i32, i32)> {
 
         return lines;
     } else {
-        panic!("unprocessed Doc encountered in get_lines");
+        panic!("unprocessed Doc encountered in get_lines: {:?}", doc);
     }
 }
 
@@ -216,6 +219,49 @@ mod tests {
     use super::*;
     use crate::fingerprint::Fingerprint;
     use std::path::PathBuf;
+
+    #[test]
+    fn test_sub_name() {
+        let mode = SubFileMode::Multi;
+
+        {
+            let sub = Sub {
+                dir_name: Some(PathBuf::from("all-subs/sub-abcd/")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from("all-subs/sub-abcd/main.arr"), vec![]),
+                    Doc::Processed(PathBuf::from("all-subs/sub-abcd/tests.arr"), vec![])
+                ]
+            };
+            let name = sub_name(&sub, &mode);
+            let exp_name = String::from("sub-abcd/");
+            assert_eq!(name, exp_name);
+        }
+        {
+            let sub = Sub {
+                dir_name: Some(PathBuf::from("all-subs/sub-xyz/")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from("all-subs/sub-xyz/main.arr"), vec![]),
+                    Doc::Processed(PathBuf::from("all-subs/sub-xyz/tests.arr"), vec![])
+                ]
+            };
+            let name = sub_name(&sub, &mode);
+            let exp_name = String::from("sub-xyz/");
+            assert_eq!(name, exp_name);
+        }
+        {
+            let sub = Sub {
+                dir_name: Some(PathBuf::from("all-subs/sub-lmn/")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from("all-subs/sub-lmn/main.arr"), vec![]),
+                    Doc::Processed(PathBuf::from("all-subs/sub-lmn/tests.arr"), vec![])
+                ]
+            };
+
+            let name = sub_name(&sub, &mode);
+            let exp_name = String::from("sub-lmn/");
+            assert_eq!(name, exp_name);
+        }
+    }
 
     #[test]
     fn test_pair_table() {
@@ -265,6 +311,9 @@ mod tests {
                 percentile: 55.
             };
 
+            let a_name = String::from("sub1/");
+            let b_name = String::from("sub2/");
+
             let exp_table = table!(
                 ["", Fcbic->"sub1/ (45%)", Fcbic->"sub2/ (78%)"],
                 [bc->"1", "doc1.arr lines 10-15", "doc1.arr lines 5, 17-30"],   // fp 11
@@ -272,7 +321,7 @@ mod tests {
                 [bc->"3", "doc1.arr line 5\ndoc2.arr lines 25-30", "doc2.arr lines 8-10"] // fp 20
             );
 
-            assert_eq!(pair_table(&sp, &SubFileMode::Multi), exp_table);
+            assert_eq!(pair_table(&sp, (&a_name, &b_name), &SubFileMode::Multi), exp_table);
         }
         {
             let a = Sub {
@@ -311,6 +360,9 @@ mod tests {
                 percentile: 55.
             };
 
+            let a_name = String::from("sub1.arr");
+            let b_name = String::from("sub2.arr");
+
             let exp_table = table!(
                 ["", Fcbic->"sub1.arr (22%)", Fcbic->"sub2.arr (31%)"],
                 [bc->"1", "line 5", "lines 38-42"],   // fp 12
@@ -318,7 +370,7 @@ mod tests {
                 [bc->"3", "lines 4-5, 11-22", "lines 17-29"] // fp 28
             );
 
-            assert_eq!(pair_table(&sp, &SubFileMode::Single), exp_table);
+            assert_eq!(pair_table(&sp, (&a_name, &b_name), &SubFileMode::Single), exp_table);
         }
     }
 

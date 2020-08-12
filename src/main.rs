@@ -123,7 +123,7 @@ fn main() {
 
 
 
-    //// terminal formatting / tables tests:
+    // terminal formatting / tables tests:
 
     // use ansi_term::Colour::RGB;
     // use ansi_term::Colour::{Blue, Yellow};

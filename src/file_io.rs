@@ -214,7 +214,6 @@ mod tests {
 
     #[test]
     fn test_construct_subs() {
-
         // construct a submission from optional dirname & paths of docs
         fn mk_sub(dir_name: Option<&str>, docs: Vec<&str>) -> Sub {
             Sub {
