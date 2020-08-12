@@ -30,9 +30,16 @@ impl PartialEq for SubPair<'_> {
 
 impl Eq for SubPair<'_> {}
 
-// Consider pairs of submissions that overlap, associate them with
-// the fingerprints they share, and order pairs by the quantity shared.
+// Consider pairs of submissions that overlap, associate them with the
+// fingerprints they share, calculate 'percent' values for each Sub in
+// a Pair and a 'percentile' value for each SubPair, keep pairs with percentile
+// greater than input threshold, order pairs by the quantity shared and return.
 fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -> Vec<SubPair> {
+
+        // ensure 0 <= threshold <= 1
+        if (threshold < 0.0) || (threshold > 1.0) {
+            err!("The input percentile threshold must be between 0 and 1 inclusive.");
+        }
 
         // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes
         let mut pairs_to_hashes: HashMap<BTreeSet<&Sub>, HashSet<i64>> = HashMap::new();
@@ -42,10 +49,9 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
 
         // iterate through hash_to_subs by key
         for (hash, subs) in hash_to_subs {
-            // if the current key has a value containing more than one entry
+            // if the current key has a value containing more than one entry, make pairs
             let subs_len: usize = subs.len();
             if subs_len > 1 {
-
                 // get all possible pairs of submissions within subs
                 let ordered_subs: Vec<&&Sub> = Vec::from_iter(subs.iter());
                 let mut i: usize = 0;
@@ -53,13 +59,13 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
                 while i < (subs_len - 1) {
                     let mut j: usize = i + 1;
                     while j < (subs_len) {
-                        // the current pair of submissions
+                        // the current pair of submissions, represented as an unordered set
                         let mut sub_btset: BTreeSet<&Sub> = BTreeSet::new();
                         sub_btset.insert(*ordered_subs[i]);
                         sub_btset.insert(*ordered_subs[j]);
 
-                            // update max_num_hashes if the size of the current value set is
-                            // larger than the current value
+                            // retrieve the size of the current value set, account for the
+                            // current element, which may or may not be added
                             let mut num_hashes: usize = 0;
                             let cur_val: Option<&HashSet<i64>> = pairs_to_hashes.get(&sub_btset);
                             match cur_val {
@@ -75,6 +81,8 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
                                 }
                             }
 
+                            // update max_num_hashes if the size of the current value set is
+                            // larger than the current value
                             if num_hashes > max_num_hashes {
                                 max_num_hashes = num_hashes;
                             }
@@ -93,7 +101,7 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
         }
 
         // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
-        // to subpairs
+        // to the subpairs Vec, which will eventually be returned as output
         let mut subpairs: Vec<SubPair> = Vec::new();
 
         for (sub_btset, matching_hashes) in pairs_to_hashes {
@@ -108,7 +116,9 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
             let mut all_fp_hashes_a: HashSet<i64> = HashSet::new();
             for doc in &sub_a.documents {
                 match doc {
-                    Doc::Unprocessed(pathbuf) => { }
+                    Doc::Unprocessed(pathbuf) => {
+                        err!("An Unprocessed Doc was found in {:?}", &sub_a.dir_name);
+                        }
                     Doc::Processed(pathbuf, fingerprints) => {
                         for fp in fingerprints {
                             all_fp_hashes_a.insert(fp.hash);
@@ -130,16 +140,22 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
                 }
             }
 
-            let sp: SubPair = SubPair {
-                a: sub_a,
-                a_percent: (num_hashes / all_fp_hashes_a.len()) as f64,
-                b: sub_b,
-                b_percent: (num_hashes / all_fp_hashes_b.len()) as f64,
-                matches: matching_hashes,
-                percentile: (num_hashes / max_num_hashes) as f64
-            };
+            // the SubPair representing the current pair of subs, to be added to the output
+            let percentile: f64 = (num_hashes / max_num_hashes) as f64;
 
-            subpairs.push(sp);
+            // only add the SubPair if it's percentile >= threshold
+            if percentile >= threshold {
+                let sp: SubPair = SubPair {
+                    a: sub_a,
+                    a_percent: (num_hashes / all_fp_hashes_a.len()) as f64,
+                    b: sub_b,
+                    b_percent: (num_hashes / all_fp_hashes_b.len()) as f64,
+                    matches: matching_hashes,
+                    percentile: percentile
+                };
+
+                subpairs.push(sp);
+            }
         }
 
         // sort the pair_hash_tuples vec by descending number of matches
