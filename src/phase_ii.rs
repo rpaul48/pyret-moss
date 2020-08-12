@@ -32,8 +32,7 @@ impl Eq for SubPair<'_> {}
 
 // Consider pairs of submissions that overlap, associate them with
 // the fingerprints they share, and order pairs by the quantity shared.
-fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
-    -> Vec<SubPair> {
+fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -> Vec<SubPair> {
 
         // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes
         let mut pairs_to_hashes: HashMap<BTreeSet<&Sub>, HashSet<i64>> = HashMap::new();
@@ -64,8 +63,16 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
                             let mut num_hashes: usize = 0;
                             let cur_val: Option<&HashSet<i64>> = pairs_to_hashes.get(&sub_btset);
                             match cur_val {
-                                None => {}
-                                Some(set) => { num_hashes = set.len(); }
+                                None => { num_hashes += 1; }
+                                Some(set) => {
+                                    if set.contains(&hash) {
+                                        // the hash wont be added to the set
+                                        num_hashes = set.len();
+                                    } else {
+                                        // the hash will be added to the set
+                                        num_hashes = set.len() + 1;
+                                    }
+                                }
                             }
 
                             if num_hashes > max_num_hashes {
@@ -93,11 +100,41 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
             let mut sub_btset_iter = sub_btset.iter();
             let num_hashes: usize = matching_hashes.len();
 
+            // the two subs in the subpairs
+            let sub_a: &Sub = sub_btset_iter.next().unwrap();
+            let sub_b: &Sub = sub_btset_iter.next().unwrap();
+
+            // the set of unique fingerprint hash values in the Docs of sub_a
+            let mut all_fp_hashes_a: HashSet<i64> = HashSet::new();
+            for doc in &sub_a.documents {
+                match doc {
+                    Doc::Unprocessed(pathbuf) => { }
+                    Doc::Processed(pathbuf, fingerprints) => {
+                        for fp in fingerprints {
+                            all_fp_hashes_a.insert(fp.hash);
+                        }
+                    }
+                }
+            }
+
+            // the number of unique fingerprint hash values in the Docs of sub_b
+            let mut all_fp_hashes_b: HashSet<i64> = HashSet::new();
+            for doc in &sub_b.documents {
+                match doc {
+                    Doc::Unprocessed(pathbuf) => { }
+                    Doc::Processed(pathbuf, fingerprints) => {
+                        for fp in fingerprints {
+                            all_fp_hashes_b.insert(fp.hash);
+                        }
+                    }
+                }
+            }
+
             let sp: SubPair = SubPair {
-                a: sub_btset_iter.next().unwrap(),
-                a_percent: 0.0,
-                b: sub_btset_iter.next().unwrap(),
-                b_percent: 0.0,
+                a: sub_a,
+                a_percent: (num_hashes / all_fp_hashes_a.len()) as f64,
+                b: sub_b,
+                b_percent: (num_hashes / all_fp_hashes_b.len()) as f64,
                 matches: matching_hashes,
                 percentile: (num_hashes / max_num_hashes) as f64
             };
