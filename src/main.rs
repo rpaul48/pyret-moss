@@ -21,11 +21,11 @@ pub struct Sub {
 
 // Doc represents a file within a submission.
 // Docs are initialized as Unprocessed (contents have not yet been
-// read), and become Processed once they have been fingerprinted/line counted
+// read), and become Processed once they have been fingerprinted
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum Doc {
-    Unprocessed(PathBuf),                       // filepath (yet to be read)
-    Processed(PathBuf, Vec<Fingerprint>, usize) // filepath, fingerprints, # of lines
+    Unprocessed(PathBuf),
+    Processed(PathBuf, Vec<Fingerprint>)
 }
 
 fn main() {
