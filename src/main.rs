@@ -38,6 +38,8 @@ fn main() {
     use std::path::{Path, PathBuf};
     use std::collections::HashSet;
 
+    // ------------------- Multi File Subs -----------------------------
+
     let a = Sub {
         dir_name: Some(PathBuf::from("subs/sub1")),
         documents: vec![
@@ -117,6 +119,64 @@ fn main() {
         matches: m3,
         percentile: 14.2
     };
+
+
+    // ---------------------- Single File ---------------------------
+
+    // let a = Sub {
+    //     dir_name: None,
+    //     documents: vec![
+    //         Doc::Processed(PathBuf::from("submissions/sub1.arr"), vec![
+    //             Fingerprint { hash: 28, lines: (4, 5) },
+    //             Fingerprint { hash: 12, lines: (5, 5) },
+    //             Fingerprint { hash: 28, lines: (11, 15) },
+    //             Fingerprint { hash: 28, lines: (16, 19) },
+    //             Fingerprint { hash: 28, lines: (18, 22) },
+    //             Fingerprint { hash: 17, lines: (30, 31) }
+    //         ])
+    //     ]
+    // };
+    // let b = Sub {
+    //     dir_name: None,
+    //     documents: vec![
+    //         Doc::Processed(PathBuf::from("submissions/sub2.arr"), vec![
+    //             Fingerprint { hash: 31, lines: (9, 15) },
+    //             Fingerprint { hash: 28, lines: (17, 17) },
+    //             Fingerprint { hash: 28, lines: (17, 29) },
+    //             Fingerprint { hash: 17, lines: (30, 31) },
+    //             Fingerprint { hash: 12, lines: (38, 42) }
+    //         ])
+    //     ]
+    // };
+    // let c = Sub {
+    //     dir_name: None,
+    //     documents: vec![
+    //         Doc::Processed(PathBuf::from("submissions/sub3.arr"), vec![
+    //             Fingerprint { hash: 31, lines: (9, 15) },
+    //             Fingerprint { hash: 28, lines: (17, 17) },
+    //             Fingerprint { hash: 28, lines: (30, 63) },
+    //             Fingerprint { hash: 17, lines: (70, 76) },
+    //             Fingerprint { hash: 12, lines: (77, 77) }
+    //         ])
+    //     ]
+    // };
+
+    // let p1 = SubPair {
+    //     a: &a,
+    //     a_percent: 22.,
+    //     b: &b,
+    //     b_percent: 31.,
+    //     matches: [12, 17, 28].iter().cloned().collect(),
+    //     percentile: 75.
+    // };
+    // let p2 = SubPair {
+    //     a: &b,
+    //     a_percent: 38.111,
+    //     b: &c,
+    //     b_percent: 98.2,
+    //     matches: [31, 28, 17, 12].iter().cloned().collect(),
+    //     percentile: 100.
+    // };
 
     let subs = vec![&a, &b, &c];
     let pairs = vec![p3, p1, p2];

@@ -64,7 +64,13 @@ pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMo
         let sub_b_name = names.get(pair.b).unwrap();
 
         // render header & table for this pair
-        format::pair_header(redirecting, i + 1, &sub_a_name, &sub_b_name, pair.matches.len());
+        format::pair_header(
+            redirecting, 
+            i + 1, 
+            &sub_a_name, 
+            &sub_b_name, 
+            pair.matches.len(),
+            pair.percentile);
         pair_table(pair, (&sub_a_name, &sub_b_name), mode).printstd();
     }
 }
@@ -94,7 +100,7 @@ mod format {
         let formatted = cond_fmt!(redir, message, 
             RGB(102, 224, 255).bold().paint(message));
 
-        println!("{}", formatted);
+        println!("\n{}", formatted);
     }
 
     pub fn overlap_found_msg(redir: bool) {
@@ -103,11 +109,12 @@ mod format {
         let formatted = cond_fmt!(redir, message, 
             RGB(77, 255, 77).bold().paint(message));
 
-        println!("{}", formatted);
+        println!("\n{}", formatted);
     }
 
     // print the header indicating pair number, pair names, & number of matches
-    pub fn pair_header(redir: bool, n: usize, a_name: &String, b_name: &String, matches: usize) {
+    pub fn pair_header(redir: bool, n: usize, a_name: &String, b_name: &String, matches: usize,
+        perc_of_max: f64) {
         let match_str = &format!("{} matches", matches);
 
         let match_fmt = cond_fmt!(redir, match_str, 
@@ -117,16 +124,16 @@ mod format {
         let b_fmt = cond_fmt!(redir, b_name, 
             White.bold().paint(b_name));
 
-        println!("\nPair {}: {} and {}: {}", n, a_fmt, b_fmt, match_fmt);
+        println!("\nPair {}: {} and {}: {} ({}% of max)", n, a_fmt, b_fmt, match_fmt, perc_of_max);
     }
 
     // print a message indicating how many pairs have been rendered so far
     pub fn pair_progress(redirecting: bool, so_far: usize, total: usize) {
-        let message = format!("\nPausing at {} / {} pairs rendered.", so_far, total);
+        let message = format!("Pausing at {} / {} pairs rendered.", so_far, total);
 
         let formatted = RGB(255, 255, 77).bold().paint(message);
 
-        println!("{}", formatted);
+        println!("\n{}", formatted);
     }
 }
 
