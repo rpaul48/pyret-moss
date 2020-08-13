@@ -9,11 +9,11 @@ use crate::io_redirect;
 use prettytable::Table;
 
 // number of results to display before prompting the user to continue
-const RESULT_BUFFER_SIZE: usize = 1; 
+const RESULT_BUFFER_SIZE: usize = 1;
 
 // Given a vector of matched submission pairs ordered by amount of overlap, 
 // render a message (to stdout or the given file) summarizing the overlaps
-pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMode, 
+pub fn render_results(sub_pairs: Vec<SubPair>, mode: &SubFileMode, 
     out_file: Option<&Path>, match_thresh: f64, total_pairs: usize, no_pauses: bool) {
 
     // if output filepath given, start redirecting stdout to that file
@@ -30,12 +30,6 @@ pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMo
     }
 
     format::overlap_found_msg(redirecting);
-
-    // compute all submission names & cache them
-    let mut names = HashMap::new();
-    for sub in subs.iter() {
-        names.insert(*sub, sub_name(sub, mode));
-    }
 
     let total_pairs_rendering = sub_pairs.len();
     format::num_pairs_rendering(redirecting, match_thresh, total_pairs, total_pairs_rendering);
@@ -63,8 +57,8 @@ pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMo
         }
 
         // retrieve names of both submissions
-        let sub_a_name = names.get(pair.a).unwrap();
-        let sub_b_name = names.get(pair.b).unwrap();
+        let sub_a_name = sub_name(pair.a, mode);
+        let sub_b_name = sub_name(pair.b, mode);
 
         // render header & table for this pair
         format::pair_header(
@@ -138,7 +132,7 @@ mod format {
         let b_fmt = cond_fmt!(redir, b_name, 
             White.bold().paint(b_name));
 
-        println!("\nPair {}: {} and {}: {} ({}% of max)", n, a_fmt, b_fmt, match_fmt, perc_of_max);
+        println!("\nPair {}: {} and {}: {} ({:.2}% of max)", n, a_fmt, b_fmt, match_fmt, perc_of_max * 100.0);
     }
 
     // print a message indicating how many pairs have been rendered so far
@@ -196,8 +190,8 @@ fn pair_table(pair: &SubPair, names: (&String, &String), mode: &SubFileMode) -> 
     let mut t = Table::new();
 
     let (a_name, b_name) = names;
-    let a_title = format!("{} ({}%)", a_name, pair.a_percent);
-    let b_title = format!("{} ({}%)", b_name, pair.b_percent);
+    let a_title = format!("{} ({:.2}%)", a_name, pair.a_percent * 100.0);
+    let b_title = format!("{} ({:.2}%)", b_name, pair.b_percent * 100.0);
 
     // add title row: submission names & their content match percentages
     t.add_row(row!["", Fcbic->a_title, Fcbic->b_title]);

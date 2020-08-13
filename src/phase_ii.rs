@@ -35,7 +35,7 @@ impl Eq for SubPair<'_> {}
 // a Pair and a 'percentile' value for each SubPair, keep pairs with percentile
 // greater than input threshold, order pairs by the quantity shared and return in tuple
 // along with number of total subpairs found
-fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
+pub fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
     -> (Vec<SubPair<'a>>, usize) {
 
     // ensure 0 <= threshold <= 1
@@ -101,10 +101,6 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
             }
         }
     }
-
-    // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
-    // to the subpairs Vec, which will eventually be returned as output
-    let mut subpairs: Vec<SubPair> = Vec::new();
 
     // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
     // to the subpairs Vec, which will eventually be returned as output with numallpairs
@@ -186,7 +182,7 @@ mod tests {
     #[test]
     // tests expected output on two single-doc input subs in input FnvHashMap, namely that the
     // matched hashes are correctly recorded, and the percent values/percentile are correct
-    fn test_single_pair_input() -> io::Result<()> {
+    fn test_single_pair_input() {
         // original submissions
         let mut sub1 = Sub {
             dir_name: None,
@@ -202,7 +198,7 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60);
         let out = find_overlaps(&inp_map, 0.0);
 
         let mut exp_matches = HashSet::new();
@@ -240,14 +236,13 @@ mod tests {
         };
 
         assert_eq!(out, (vec![exp_out_sp], 1));
-        Ok(())
     }
 
     #[test]
     // tests expected output on four single-doc input subs in input FnvHashMap, namely that
     // SubPairs are sorted by number of matches in output, percent/percentile values are correct,
     // and pairs without overlap are omitted
-    fn test_multiple_pairs_output() -> io::Result<()> {
+    fn test_multiple_pairs_output() {
         // original submissions
         let mut sub1 = Sub {
             dir_name: None,
@@ -275,7 +270,7 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2, &mut sub3, &mut sub4];
-        let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60);
         let out_min_thresh = find_overlaps(&inp_map, 0.0);
 
         let processed_sub1 = Sub {
@@ -350,15 +345,13 @@ mod tests {
         };
 
         assert_eq!(out_min_thresh, (vec![sub1_sub2_pair, sub1_sub4_pair, sub2_sub4_pair], 3));
-
-        Ok(())
     }
 
     #[test]
     // tests expected output on four multi-doc input subs in input FnvHashMap, namely that
     // SubPairs are sorted by number of matches in output, percent/percentile values are correct,
     // and pairs below percentile threshold are omitted
-    fn test_multiple_multidoc_pairs_output() -> io::Result<()> {
+    fn test_multiple_multidoc_pairs_output() {
         // original submissions
         let mut sub1 = Sub {
             dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1")),
@@ -390,7 +383,7 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2, &mut sub3, &mut sub4];
-        let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60);
         //threshold is such that some pairs are filtered out
         let out_med_thresh = find_overlaps(&inp_map, 0.3);
 
@@ -473,7 +466,6 @@ mod tests {
         };
 
         assert_eq!(out_med_thresh, (vec![sub3_sub4_pair, sub1_sub3_pair], 6));
-        Ok(())
     }
 
 }
