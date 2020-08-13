@@ -102,12 +102,11 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
             i += 1;
         }
     }
-    
+
     // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
     // to the subpairs Vec, which will eventually be returned as output
     let mut subpairs: Vec<SubPair> = Vec::new();
 
-<<<<<<< HEAD
         // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
         // to the subpairs Vec, which will eventually be returned as output with numallpairs
         let mut subpairs: Vec<SubPair> = Vec::new();
@@ -116,11 +115,6 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
         for (sub_btset, matching_hashes) in pairs_to_hashes {
             let mut sub_btset_iter = sub_btset.iter();
             let num_hashes: usize = matching_hashes.len();
-=======
-    for (sub_btset, matching_hashes) in pairs_to_hashes {
-        let mut sub_btset_iter = sub_btset.iter();
-        let num_hashes: usize = matching_hashes.len();
->>>>>>> c0e6dd22ff9ab1d97bd17dd340b4561a3516080d
 
             // the two subs in the subpairs
             let sub_a: &Sub = sub_btset_iter.next().unwrap();
@@ -177,13 +171,8 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
         // sort the pair_hash_tuples vec by descending percentile (same as sort by num of matches)
         subpairs.sort_by(|a, b| b.percentile.partial_cmp(&a.percentile).unwrap());
 
-<<<<<<< HEAD
         // return the populated, sorted output
         (subpairs, numallpairs)
-=======
-    // return the populated, sorted output
-    subpairs
->>>>>>> c0e6dd22ff9ab1d97bd17dd340b4561a3516080d
 }
 
 #[cfg(test)]
