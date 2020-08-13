@@ -33,9 +33,10 @@ impl Eq for SubPair<'_> {}
 // Consider pairs of submissions that overlap, associate them with the
 // fingerprints they share, calculate 'percent' values for each Sub in
 // a Pair and a 'percentile' value for each SubPair, keep pairs with percentile
-// greater than input threshold, order pairs by the quantity shared and return.
+// greater than input threshold, order pairs by the quantity shared and return in tuple
+// along with number of total subpairs found
 fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
-    -> Vec<SubPair<'a>> {
+    -> (Vec<SubPair<'a>>, usize) {
 
     // ensure 0 <= threshold <= 1
     if (threshold < 0.0) || (threshold > 1.0) {
@@ -101,14 +102,19 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
             i += 1;
         }
     }
-    
+
     // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
     // to the subpairs Vec, which will eventually be returned as output
     let mut subpairs: Vec<SubPair> = Vec::new();
 
-    for (sub_btset, matching_hashes) in pairs_to_hashes {
-        let mut sub_btset_iter = sub_btset.iter();
-        let num_hashes: usize = matching_hashes.len();
+        // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
+        // to the subpairs Vec, which will eventually be returned as output with numallpairs
+        let mut subpairs: Vec<SubPair> = Vec::new();
+        let numallpairs: usize = pairs_to_hashes.len();
+
+        for (sub_btset, matching_hashes) in pairs_to_hashes {
+            let mut sub_btset_iter = sub_btset.iter();
+            let num_hashes: usize = matching_hashes.len();
 
         // the two subs in the subpairs
         let sub_a: &Sub = sub_btset_iter.next().unwrap();
@@ -165,8 +171,8 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
     // sort the pair_hash_tuples vec by descending percentile (same as sort by num of matches)
     subpairs.sort_by(|a, b| b.percentile.partial_cmp(&a.percentile).unwrap());
 
-    // return the populated, sorted output
-    subpairs
+        // return the populated, sorted output
+        (subpairs, numallpairs)
 }
 
 #[cfg(test)]
@@ -234,7 +240,7 @@ mod tests {
             percentile: 1.0
         };
 
-        assert_eq!(out, vec![exp_out_sp]);
+        assert_eq!(out, (vec![exp_out_sp], 1));
         Ok(())
     }
 
@@ -344,7 +350,7 @@ mod tests {
             percentile: 1.0 / 3.0
         };
 
-        assert_eq!(out_min_thresh, vec![sub1_sub2_pair, sub1_sub4_pair, sub2_sub4_pair]);
+        assert_eq!(out_min_thresh, (vec![sub1_sub2_pair, sub1_sub4_pair, sub2_sub4_pair], 3));
 
         Ok(())
     }
@@ -467,7 +473,7 @@ mod tests {
             percentile: 1.0 / 3.0
         };
 
-        assert_eq!(out_med_thresh, vec![sub3_sub4_pair, sub1_sub3_pair]);
+        assert_eq!(out_med_thresh, (vec![sub3_sub4_pair, sub1_sub3_pair], 6));
         Ok(())
     }
 
