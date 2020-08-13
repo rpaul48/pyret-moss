@@ -9,10 +9,11 @@ pub struct OptArgs<'a> {
     pub sub_mode: SubFileMode,          // indicates whether subs are files or dirs
     pub k: i32,                         // noise threshold
     pub t: i32,                         // guarantee threshold
+    pub match_threshold: f64,           // include sub pairs whose match percentage is at least this big
     pub ignore_dir: Option<&'a Path>,   // dir of files indicating expected overlap to ignore
-    pub max_pairs_out: Option<i32>,     // max pairs of submissions to report on in output
     pub out_file: Option<&'a Path>,     // where the program's result summary will be written (default stdout)
-    pub verbose: bool                   // option to increase intensity of logging
+    pub verbose: bool,                  // option to increase intensity of logging
+    pub no_pauses: bool                 // if true, don't pause to confirm when rendering output pairs
 }
 
 // SubFileMode indicates how submissions should be found within 
@@ -34,10 +35,11 @@ impl Default for OptArgs<'_> {
             sub_mode: SubFileMode::Multi,
             k: 15,
             t: 20,
+            match_threshold: 0.0f64,
             ignore_dir: None,
-            max_pairs_out: None,
             out_file: None,
-            verbose: false
+            verbose: false,
+            no_pauses: false
         }
     }
 }
@@ -73,7 +75,7 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
     while let Some(arg) = iter.next() {
         let arg = arg.as_str();
         match arg {
-            "--help" => print_help(),
+            "--help" => print_help(&args[0]),
             "--single-file-subs" => options.sub_mode = SubFileMode::Single,
             "-k" => {
                 let k_str = unwrap_next(arg, iter.next());
@@ -101,16 +103,18 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
                 let ignore_dir = unwrap_next(arg, iter.next());
                 options.ignore_dir = Some(&Path::new(ignore_dir));
             },
-            "--max-out" => {
-                let max_str = unwrap_next(arg, iter.next());
+            "--match-threshold" => {
+                let thresh_str = unwrap_next(arg, iter.next());
 
-                if let Ok(max_pairs_out) = max_str.parse::<i32>() {
-                    options.max_pairs_out = Some(max_pairs_out);
+                if let Ok(match_threshold) = thresh_str.parse::<f64>() {
+                    let match_threshold = match_threshold / 100.0f64;
+                    options.match_threshold = match_threshold;
                 } else {
-                    err!("invalid value for --max-out: `{}`", max_str);
+                    err!("invalid value for --match-threshold: `{}`", thresh_str);
                 }
             },
             "--verbose" => options.verbose = true,
+            "--no-pauses" => options.no_pauses = true,
             _ => {
                 // check for unrecognized flags
                 if arg.starts_with('-') {
@@ -128,8 +132,10 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
 
     // Check a predicate on a value, and give an informative 
     // error message in the case of failure
-    fn validate<F>(flag: &str, value: i32, valid: F, reminder: &str) 
-        where F: Fn(i32) -> bool {
+    fn validate<F, T>(flag: &str, value: &T, valid: F, reminder: &str) 
+        where 
+            F: Fn(&T) -> bool,
+            T: std::fmt::Display {
         if !valid(value) {
             err!("invalid value for {}: `{}` (remember: {})", flag, value, reminder);
         }
@@ -137,13 +143,11 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
 
     // validate both k & t: must be positive and 0 < k <= t
     let kt_remind = "0 < k <= t";
-    validate("k", options.k, |k| k > 0 && k <= options.t, kt_remind);
-    validate("t", options.t, |t| t > 0 && t >= options.k, kt_remind);
+    validate("k", &options.k, |&k| k > 0 && k <= options.t, kt_remind);
+    validate("t", &options.t, |&t| t > 0 && t >= options.k, kt_remind);
 
-    // validate max pairs out
-    if let Some(max) = options.max_pairs_out {
-        validate("--max-out", max, |m| m > 0, "must be > 0 submission pairs in output");
-    }
+    // validate match threshold
+    validate("--match-threshold", &options.match_threshold, |&t| t >= 0.0 && t <= 1.0, "must be a percentage value (0-100)");
 
     if let Some(dir) = sub_dir {
         // return the submissions directory & updated options
@@ -153,31 +157,35 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
     }
 }
 
-// Print a help message explaining the command line interface & exit
-fn print_help() {
-    println!("{}", HELP_MSG);
-    std::process::exit(0);
-}
-
-const HELP_MSG: &str = "\
+// Print a help message explaining the command line interface & exit.
+// Format the message so that whatever executable you used to run the help
+// command is what appears in the directions
+fn print_help(exec: &String) {
+    // this is no good but I want to be able to use it as a formatting 
+    // string and I don't want to write out the whitespace explicitly
+    println!("\
 Copy-detection for Pyret
 
 USAGE:
-    pyret-moss <SUBMISSIONS-DIR> [OPTIONS]
+    {} <SUBMISSIONS-DIR> [OPTIONS]
 
 SUBMISSIONS-DIR indicates a directory containing submissions (either individual .arr
 files or subdirectories of .arr files)
 
 OPTIONS:
-    --help                  Prints this help information
-    --single-file-subs      Indicates that submissions will be treated as single .arr files
-    -k <VALUE>              Sets the noise threshold, k
-    -t <VALUE>              Sets the guarantee threshold, t
-    --ignore <DIR>          Indicates submission matches with the .arr files in DIR should be ignored
-    --max-out <VALUE>       Limits the number of submission pairs in the output analysis to VALUE
-    -o <FILE>               Writes the analysis to FILE instead of stdout
-    --verbose               More logging
-";
+    --help                      Prints this help information
+    --single-file-subs          Indicates that submissions will be treated as single .arr files
+    -k <VALUE>                  Sets the noise threshold, k
+    -t <VALUE>                  Sets the guarantee threshold, t
+    --ignore <DIR>              Indicates submission matches with the .arr files in DIR should be ignored
+    --match-threshold <VALUE>   Only report submission pairs whose match percentage is at least VALUE (0-100)
+    -o <FILE>                   Writes the analysis to FILE instead of stdout
+    --verbose                   More logging
+    --no-pauses                 Don't pause for confirmation to continue when rendering results
+", exec);
+
+    std::process::exit(0);
+}
 
 
 #[cfg(test)]
@@ -235,17 +243,18 @@ mod tests {
                 k: 10,
                 t: 20,
                 ignore_dir: Some(&Path::new("./dirs/ignore")),
-                max_pairs_out: None,
+                match_threshold: 0.0,
                 out_file: None,
-                verbose: false
+                verbose: false,
+                no_pauses: false
             });
         }
         {
             let args = to_vec_string(vec![
                 "./pyret-moss",
                 "~/submissions",
-                "--max-out",
-                "15",
+                "--match-threshold",
+                "16.8",
                 "--verbose",
                 "-o",
                 "~/Desktop/analysis.txt",
@@ -255,7 +264,8 @@ mod tests {
                 "25",
                 "--single-file-subs",
                 "--ignore",
-                "./boilerplate"
+                "./boilerplate",
+                "--no-pauses"
             ]);
 
             let (sub_dir, opt_args) = parse_args(&args);
@@ -266,9 +276,10 @@ mod tests {
                 k: 20,
                 t: 25,
                 ignore_dir: Some(&Path::new("./boilerplate")),
-                max_pairs_out: Some(15),
+                match_threshold: 0.168,
                 out_file: Some(&Path::new("~/Desktop/analysis.txt")),
-                verbose: true
+                verbose: true,
+                no_pauses: true
             });
         }
     }

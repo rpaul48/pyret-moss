@@ -13,7 +13,9 @@ const RESULT_BUFFER_SIZE: usize = 1;
 
 // Given a vector of matched submission pairs ordered by amount of overlap, 
 // render a message (to stdout or the given file) summarizing the overlaps
-pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>) {
+pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMode, 
+    out_file: Option<&Path>, match_thresh: f64, total_pairs: usize, no_pauses: bool) {
+
     // if output filepath given, start redirecting stdout to that file
     let redirecting = out_file.is_some();
     let mut redirect = match out_file {
@@ -35,17 +37,18 @@ pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMo
         names.insert(*sub, sub_name(sub, mode));
     }
 
-    let total_pairs = sub_pairs.len();
+    let total_pairs_rendering = sub_pairs.len();
+    format::num_pairs_rendering(redirecting, match_thresh, total_pairs, total_pairs_rendering);
 
     // for each pair & its index
     for (i, pair) in sub_pairs.iter().enumerate() {
         // periodically, ask user for confirmation to continue rendering results
-        if i > 0 && i % RESULT_BUFFER_SIZE == 0 {
+        if !no_pauses && i > 0 && i % RESULT_BUFFER_SIZE == 0 {
             // pause redirection of stdout
             if redirecting { io_redirect::end_redirect(&mut redirect); }
 
             // wait for user to confirm to continue
-            format::pair_progress(redirecting, i, total_pairs);
+            format::pair_progress(redirecting, i, total_pairs_rendering);
             io_redirect::confirm_continue();
 
             // resume redirecting stdout
@@ -103,6 +106,7 @@ mod format {
         println!("\n{}", formatted);
     }
 
+    // print a message indicating overlap was found
     pub fn overlap_found_msg(redir: bool) {
         let message = "Avast ye, there be submission overlap!";
 
@@ -110,6 +114,16 @@ mod format {
             RGB(77, 255, 77).bold().paint(message));
 
         println!("\n{}", formatted);
+    }
+
+    // print a message indicating how many submission pairs will be rendered
+    pub fn num_pairs_rendering(redir: bool, thresh: f64, total: usize, total_render: usize) {
+        if thresh > 0.0 {
+            println!("Rendering pairs at least {}% of max matches: {} kept out of {} total", 
+                thresh * 100.0, total_render, total);
+        } else {
+            println!("Rendering all submission pairs ({} total)", total_render);
+        }
     }
 
     // print the header indicating pair number, pair names, & number of matches

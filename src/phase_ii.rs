@@ -110,60 +110,60 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
         let mut sub_btset_iter = sub_btset.iter();
         let num_hashes: usize = matching_hashes.len();
 
-            // the two subs in the subpairs
-            let sub_a: &Sub = sub_btset_iter.next().unwrap();
-            let sub_b: &Sub = sub_btset_iter.next().unwrap();
+        // the two subs in the subpairs
+        let sub_a: &Sub = sub_btset_iter.next().unwrap();
+        let sub_b: &Sub = sub_btset_iter.next().unwrap();
 
-            // the set of unique fingerprint hash values in the Docs of sub_a
-            let mut all_fp_hashes_a: HashSet<i64> = HashSet::new();
-            for doc in &sub_a.documents {
-                match doc {
-                    Doc::Unprocessed(pathbuf) => {
-                        err!("An Unprocessed Doc was found in {:?}", pathbuf);
-                        }
-                    Doc::Processed(_pathbuf, fingerprints) => {
-                        for fp in fingerprints {
-                            all_fp_hashes_a.insert(fp.hash);
-                        }
+        // the set of unique fingerprint hash values in the Docs of sub_a
+        let mut all_fp_hashes_a: HashSet<i64> = HashSet::new();
+        for doc in &sub_a.documents {
+            match doc {
+                Doc::Unprocessed(pathbuf) => {
+                    err!("An Unprocessed Doc was found in {:?}", pathbuf);
+                    }
+                Doc::Processed(_pathbuf, fingerprints) => {
+                    for fp in fingerprints {
+                        all_fp_hashes_a.insert(fp.hash);
                     }
                 }
-            }
-
-            // the number of unique fingerprint hash values in the Docs of sub_b
-            let mut all_fp_hashes_b: HashSet<i64> = HashSet::new();
-            for doc in &sub_b.documents {
-                match doc {
-                    Doc::Unprocessed(pathbuf) => {
-                        err!("An Unprocessed Doc was found in {:?}", pathbuf);
-                    }
-                    Doc::Processed(_pathbuf, fingerprints) => {
-                        for fp in fingerprints {
-                            all_fp_hashes_b.insert(fp.hash);
-                        }
-                    }
-                }
-            }
-
-            // the SubPair representing the current pair of subs, to be added to the output
-            let percentile: f64 = (num_hashes as f64) / (max_num_hashes as f64);
-
-            // only add the SubPair if it's percentile >= threshold
-            if percentile >= threshold {
-                let sp: SubPair = SubPair {
-                    a: sub_a,
-                    a_percent: (num_hashes as f64) / (all_fp_hashes_a.len() as f64),
-                    b: sub_b,
-                    b_percent: (num_hashes as f64) / (all_fp_hashes_b.len() as f64),
-                    matches: matching_hashes,
-                    percentile: percentile
-                };
-
-                subpairs.push(sp);
             }
         }
 
-        // sort the pair_hash_tuples vec by descending percentile (same as sort by num of matches)
-        subpairs.sort_by(|a, b| b.percentile.partial_cmp(&a.percentile).unwrap());
+        // the number of unique fingerprint hash values in the Docs of sub_b
+        let mut all_fp_hashes_b: HashSet<i64> = HashSet::new();
+        for doc in &sub_b.documents {
+            match doc {
+                Doc::Unprocessed(pathbuf) => {
+                    err!("An Unprocessed Doc was found in {:?}", pathbuf);
+                }
+                Doc::Processed(_pathbuf, fingerprints) => {
+                    for fp in fingerprints {
+                        all_fp_hashes_b.insert(fp.hash);
+                    }
+                }
+            }
+        }
+
+        // the SubPair representing the current pair of subs, to be added to the output
+        let percentile: f64 = (num_hashes as f64) / (max_num_hashes as f64);
+
+        // only add the SubPair if its percentile >= threshold
+        if percentile >= threshold {
+            let sp: SubPair = SubPair {
+                a: sub_a,
+                a_percent: (num_hashes as f64) / (all_fp_hashes_a.len() as f64),
+                b: sub_b,
+                b_percent: (num_hashes as f64) / (all_fp_hashes_b.len() as f64),
+                matches: matching_hashes,
+                percentile: percentile
+            };
+
+            subpairs.push(sp);
+        }
+    }
+
+    // sort the pair_hash_tuples vec by descending percentile (same as sort by num of matches)
+    subpairs.sort_by(|a, b| b.percentile.partial_cmp(&a.percentile).unwrap());
 
     // return the populated, sorted output
     subpairs
