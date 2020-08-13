@@ -34,7 +34,8 @@ impl Eq for SubPair<'_> {}
 // fingerprints they share, calculate 'percent' values for each Sub in
 // a Pair and a 'percentile' value for each SubPair, keep pairs with percentile
 // greater than input threshold, order pairs by the quantity shared and return.
-fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -> Vec<SubPair> {
+fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
+    -> Vec<SubPair<'a>> {
 
         // ensure 0 <= threshold <= 1
         if (threshold < 0.0) || (threshold > 1.0) {
@@ -92,7 +93,7 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
                             // set sub_pair already maps to
                             pairs_to_hashes.entry(sub_btset)
                                 .or_insert_with(HashSet::new)
-                                .insert(hash);
+                                .insert(*hash);
                         j += 1;
                     }
                     i += 1;
@@ -171,6 +172,7 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
 mod tests {
     use super::*;
     use crate::fingerprint::Fingerprint;
+    use crate::Doc::Processed;
     use crate::phase_i::analyze_subs;
     use std::io;
     use std::path::PathBuf;
@@ -195,7 +197,7 @@ mod tests {
 
         let mut submissions = vec![&mut sub1, &mut sub2];
         let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
-        let out = find_overlaps(inp_map, 0.0);
+        let out = find_overlaps(&inp_map, 0.0);
 
         let mut exp_matches = HashSet::new();
         exp_matches.insert(5421077);
@@ -238,7 +240,7 @@ mod tests {
     #[test]
     // tests expected output on four single-doc input subs in input FnvHashMap, namely that
     // SubPairs are sorted by number of matches in output, percent/percentile values are correct,
-    // and pairs without overlap or below percentile threshold are omitted
+    // and pairs without overlap are omitted
     fn test_multiple_pairs_output() -> io::Result<()> {
         // original submissions
         let mut sub1 = Sub {
@@ -268,8 +270,7 @@ mod tests {
 
         let mut submissions = vec![&mut sub1, &mut sub2, &mut sub3, &mut sub4];
         let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
-        let out_min_thresh = find_overlaps(inp_map, 0.0);
-        //let out_med_thresh = find_overlaps(inp_map, 0.5);
+        let out_min_thresh = find_overlaps(&inp_map, 0.0);
 
         let processed_sub1 = Sub {
             dir_name: None,
@@ -343,8 +344,129 @@ mod tests {
         };
 
         assert_eq!(out_min_thresh, vec![sub1_sub2_pair, sub1_sub4_pair, sub2_sub4_pair]);
-        //assert_eq!(out_med_thresh, vec![sub1_sub2_pair, sub1_sub4_pair]);
 
+        Ok(())
+    }
+
+    #[test]
+    // tests expected output on four multi-doc input subs in input FnvHashMap, namely that
+    // SubPairs are sorted by number of matches in output, percent/percentile values are correct,
+    // and pairs below percentile threshold are omitted
+    fn test_multiple_multidoc_pairs_output() -> io::Result<()> {
+        // original submissions
+        let mut sub1 = Sub {
+            dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1")),
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1/common.arr")),
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1/main.arr"))
+            ]
+        };
+        let mut sub2 = Sub {
+            dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub2")),
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub2/common.arr")),
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub2/main.arr"))
+            ]
+        };
+        let mut sub3 = Sub {
+            dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub3")),
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub3/common.arr")),
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub3/main.arr"))
+            ]
+        };
+        let mut sub4 = Sub {
+            dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub4")),
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub4/common.arr")),
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub4/main.arr"))
+            ]
+        };
+
+        let mut submissions = vec![&mut sub1, &mut sub2, &mut sub3, &mut sub4];
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
+        //threshold is such that some pairs are filtered out
+        let out_med_thresh = find_overlaps(&inp_map, 0.3);
+
+        let processed_sub1 = Sub {
+            dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1")),
+            documents: vec![
+                Processed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1/common.arr"),
+                    vec![Fingerprint { hash: 390399223, lines: (1, 2) }]),
+                Processed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1/main.arr"), vec![
+                    Fingerprint { hash: 103309548, lines: (3, 5) },
+                	Fingerprint { hash: 139046768, lines: (7, 8) },
+                	Fingerprint { hash: 157553660, lines: (12, 12) },
+                	Fingerprint { hash: 155828129, lines: (16, 17) },
+                	Fingerprint { hash: 70845857, lines: (17, 18) }])]
+        };
+
+        let processed_sub3 = Sub {
+            dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub3")),
+            documents: vec![
+                Processed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub3/common.arr"),
+                vec![Fingerprint { hash: 76905376, lines: (6, 7) },
+                    Fingerprint { hash: 76839850, lines: (7, 8) },
+                    Fingerprint { hash: 41033526, lines: (8, 8) },
+                    Fingerprint { hash: 77033123, lines: (8, 9) },
+                    Fingerprint { hash: 70845857, lines: (16, 17) }]),
+                Processed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub3/main.arr"), vec![
+                    Fingerprint { hash: 103309548, lines: (3, 5) },
+                    Fingerprint { hash: 103309548, lines: (13, 15) },
+                    Fingerprint { hash: 138677810, lines: (22, 25) },
+                    Fingerprint { hash: 90448699, lines: (26, 26) },
+                    Fingerprint { hash: 90391867, lines: (26, 27) },
+                    Fingerprint { hash: 40051188, lines: (27, 27) },
+                    Fingerprint { hash: 1866481, lines: (27, 27) }])]
+        };
+
+        let processed_sub4 = Sub {
+            dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub4")),
+            documents: vec![
+                Processed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub4/common.arr"),
+                vec![Fingerprint { hash: 84319302, lines: (14, 14) },
+                    Fingerprint { hash: 83117630, lines: (14, 14) },
+                    Fingerprint { hash: 77155669, lines: (14, 14) },
+                    Fingerprint { hash: 76905376, lines: (14, 15) },
+                    Fingerprint { hash: 76839850, lines: (15, 16) },
+                    Fingerprint { hash: 41033526, lines: (16, 16) },
+                    Fingerprint { hash: 40051188, lines: (20, 20) },
+                    Fingerprint { hash: 1866481, lines: (20, 20) }]),
+                Processed(PathBuf::from("test-dirs/test/multi-file-subpairs/sub4/main.arr"), vec![
+                    Fingerprint { hash: 103309548, lines: (4, 6) }])]
+        };
+
+        let mut sub3_sub4_matches = HashSet::new();
+        sub3_sub4_matches.insert(103309548);
+        sub3_sub4_matches.insert(76905376);
+        sub3_sub4_matches.insert(1866481);
+        sub3_sub4_matches.insert(41033526);
+        sub3_sub4_matches.insert(76839850);
+        sub3_sub4_matches.insert(40051188);
+
+        let mut sub1_sub3_matches = HashSet::new();
+        sub1_sub3_matches.insert(70845857);
+        sub1_sub3_matches.insert(103309548);
+
+        let sub3_sub4_pair = SubPair {
+            a: &processed_sub3,
+            a_percent: 6.0 / 11.0,
+            b: &processed_sub4,
+            b_percent: 2.0 / 3.0,
+            matches: sub3_sub4_matches,
+            percentile: 1.0
+        };
+
+        let sub1_sub3_pair = SubPair {
+            a: &processed_sub1,
+            a_percent: 2.0 / 3.0,
+            b: &processed_sub3,
+            b_percent: 2.0 / 11.0,
+            matches: sub1_sub3_matches,
+            percentile: 1.0 / 3.0
+        };
+
+        assert_eq!(out_med_thresh, vec![sub3_sub4_pair, sub1_sub3_pair]);
         Ok(())
     }
 
