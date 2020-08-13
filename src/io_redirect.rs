@@ -53,8 +53,7 @@ pub fn end_redirect(redirect: &mut Option<Redirect<File>>) {
 
 // Print a message and enter an infinite loop until confirmation is 
 // received from the user to proceed
-pub fn confirm_continue(message: &str) {
-    println!("\n{}", message);
+pub fn confirm_continue() {
     loop {
         let mut confirm = String::new();
 

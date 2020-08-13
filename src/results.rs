@@ -2,44 +2,132 @@
 
 use crate::{Sub, Doc};
 use std::collections::{HashSet, HashMap};
-use std::collections::BTreeSet;
 use std::path::{Path, PathBuf, Component};
 use crate::cli::SubFileMode;
 use crate::phase_ii::SubPair;
+use crate::io_redirect;
 use prettytable::Table;
 
 // number of results to display before prompting the user to continue
-const RESULT_BUFFER_SIZE: i32 = 50; 
+const RESULT_BUFFER_SIZE: usize = 1; 
 
 // Given a vector of matched submission pairs ordered by amount of overlap, 
 // render a message (to stdout or the given file) summarizing the overlaps
-fn render_results(subs: Vec<Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>) {
-    unimplemented!();
-    /*
-        if Some out_file: redirect println! temporarily
+pub fn render_results(subs: Vec<&Sub>, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>) {
+    // if output filepath given, start redirecting stdout to that file
+    let redirecting = out_file.is_some();
+    let mut redirect = match out_file {
+        Some(p) => Some(io_redirect::initialize_redirect(p)),
+        None => None,
+    };
 
-        if sub_pairs is empty
-            log "Aye, no overlap was found" & exit
+    // if no submission pairs were found in Phase II, exit
+    if sub_pairs.is_empty() {
+        format::no_overlap_msg(redirecting);
+        std::process::exit(0);
+    }
 
-        log "Avast ye, there be submission overlap!"
+    format::overlap_found_msg(redirecting);
 
-        cache = HashMap::new
-        for each sub:
-            memoize name in cache
+    // compute all submission names & cache them
+    let mut names = HashMap::new();
+    for sub in subs.iter() {
+        names.insert(*sub, sub_name(sub, mode));
+    }
 
-        for each (i, pair) in sub_pairs enumerate
+    let total_pairs = sub_pairs.len();
 
-            if i > 0 && i % RESULT_BUFFER_SIZE == 0
-                pause for stdin to confirm
+    // for each pair & its index
+    for (i, pair) in sub_pairs.iter().enumerate() {
+        // periodically, ask user for confirmation to continue rendering results
+        if i > 0 && i % RESULT_BUFFER_SIZE == 0 {
+            // pause redirection of stdout
+            if redirecting { io_redirect::end_redirect(&mut redirect); }
 
-            a_name = sub_name(pair.a, ...)
-            b_name = sub_name(pair.b, ...)
+            // wait for user to confirm to continue
+            format::pair_progress(redirecting, i, total_pairs);
+            io_redirect::confirm_continue();
 
-            table = pair_table(pair, a_name, b_name, mode)
+            // resume redirecting stdout
+            if redirecting {
+                match out_file {
+                    Some(p) => io_redirect::resume_redirect(&mut redirect, p),
+                    None => {
+                        panic!("set to redirect, but no out file found");
+                    },
+                };
+            }
+        }
 
-            log "sub1/ and sub2/: 3 matches" depending on pair.matches.len()
-            table.printstd()
-    */
+        // retrieve names of both submissions
+        let sub_a_name = names.get(pair.a).unwrap();
+        let sub_b_name = names.get(pair.b).unwrap();
+
+        // render header & table for this pair
+        format::pair_header(redirecting, i + 1, &sub_a_name, &sub_b_name, pair.matches.len());
+        pair_table(pair, (&sub_a_name, &sub_b_name), mode).printstd();
+    }
+}
+
+// Wrappers for printing messages in result rendering, because 
+// formatting can complicate things
+mod format {
+    use ansi_term::Colour::{RGB, White};
+    use ansi_term::Style;
+
+    // conditionally format a string with whatever formatting is supplied,
+    // depending on whether or not output is being redirected
+    macro_rules! cond_fmt {
+        ($redirect:expr, $s:expr, $formatted:expr) => {
+            if !$redirect {
+                $formatted
+            } else {
+                Style::default().paint($s)
+            }
+        }
+    }
+
+    // print a message indicating that no overlap between submission was found
+    pub fn no_overlap_msg(redir: bool) {
+        let message = "Aye, no overlap was found!";
+
+        let formatted = cond_fmt!(redir, message, 
+            RGB(102, 224, 255).bold().paint(message));
+
+        println!("{}", formatted);
+    }
+
+    pub fn overlap_found_msg(redir: bool) {
+        let message = "Avast ye, there be submission overlap!";
+
+        let formatted = cond_fmt!(redir, message, 
+            RGB(77, 255, 77).bold().paint(message));
+
+        println!("{}", formatted);
+    }
+
+    // print the header indicating pair number, pair names, & number of matches
+    pub fn pair_header(redir: bool, n: usize, a_name: &String, b_name: &String, matches: usize) {
+        let match_str = &format!("{} matches", matches);
+
+        let match_fmt = cond_fmt!(redir, match_str, 
+            RGB(77, 255, 77).bold().paint(match_str));
+        let a_fmt = cond_fmt!(redir, a_name, 
+            White.bold().paint(a_name));
+        let b_fmt = cond_fmt!(redir, b_name, 
+            White.bold().paint(b_name));
+
+        println!("\nPair {}: {} and {}: {}", n, a_fmt, b_fmt, match_fmt);
+    }
+
+    // print a message indicating how many pairs have been rendered so far
+    pub fn pair_progress(redirecting: bool, so_far: usize, total: usize) {
+        let message = format!("\nPausing at {} / {} pairs rendered.", so_far, total);
+
+        let formatted = RGB(255, 255, 77).bold().paint(message);
+
+        println!("{}", formatted);
+    }
 }
 
 // Extract a "name" for a submission (for use in output) based on the sub mode: 
