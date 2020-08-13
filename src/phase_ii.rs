@@ -116,10 +116,10 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
             let mut all_fp_hashes_a: HashSet<i64> = HashSet::new();
             for doc in &sub_a.documents {
                 match doc {
-                    Doc::Unprocessed(pathbuf) => {
+                    Doc::Unprocessed(_pathbuf) => {
                         err!("An Unprocessed Doc was found in {:?}", &sub_a.dir_name);
                         }
-                    Doc::Processed(pathbuf, fingerprints) => {
+                    Doc::Processed(_pathbuf, fingerprints) => {
                         for fp in fingerprints {
                             all_fp_hashes_a.insert(fp.hash);
                         }
@@ -131,8 +131,10 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
             let mut all_fp_hashes_b: HashSet<i64> = HashSet::new();
             for doc in &sub_b.documents {
                 match doc {
-                    Doc::Unprocessed(pathbuf) => { }
-                    Doc::Processed(pathbuf, fingerprints) => {
+                    Doc::Unprocessed(_pathbuf) => {
+                        err!("An Unprocessed Doc was found in {:?}", &sub_b.dir_name);
+                    }
+                    Doc::Processed(_pathbuf, fingerprints) => {
                         for fp in fingerprints {
                             all_fp_hashes_b.insert(fp.hash);
                         }
@@ -141,15 +143,15 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
             }
 
             // the SubPair representing the current pair of subs, to be added to the output
-            let percentile: f64 = (num_hashes / max_num_hashes) as f64;
+            let percentile: f64 = (num_hashes as f64) / (max_num_hashes as f64);
 
             // only add the SubPair if it's percentile >= threshold
             if percentile >= threshold {
                 let sp: SubPair = SubPair {
                     a: sub_a,
-                    a_percent: (num_hashes / all_fp_hashes_a.len()) as f64,
+                    a_percent: (num_hashes as f64) / (all_fp_hashes_a.len() as f64),
                     b: sub_b,
-                    b_percent: (num_hashes / all_fp_hashes_b.len()) as f64,
+                    b_percent: (num_hashes as f64) / (all_fp_hashes_b.len() as f64),
                     matches: matching_hashes,
                     percentile: percentile
                 };
@@ -158,9 +160,192 @@ fn find_overlaps(hash_to_subs: FnvHashMap<i64, HashSet<&Sub>>, threshold: f64) -
             }
         }
 
-        // sort the pair_hash_tuples vec by descending number of matches
-        subpairs.sort_by(|a, b| a.matches.len().cmp(&b.matches.len()));
+        // sort the pair_hash_tuples vec by descending percentile (same as sort by num of matches)
+        subpairs.sort_by(|a, b| b.percentile.partial_cmp(&a.percentile).unwrap());
 
         // return the populated, sorted output
         subpairs
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fingerprint::Fingerprint;
+    use crate::phase_i::analyze_subs;
+    use std::io;
+    use std::path::PathBuf;
+
+    #[test]
+    // tests expected output on two single-doc input subs in input FnvHashMap, namely that the
+    // matched hashes are correctly recorded, and the percent values/percentile are correct
+    fn test_single_pair_input() -> io::Result<()> {
+        // original submissions
+        let mut sub1 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/single-file/sub1.arr"))
+            ]
+        };
+        let mut sub2 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/single-file/sub2.arr"))
+            ]
+        };
+
+        let mut submissions = vec![&mut sub1, &mut sub2];
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
+        let out = find_overlaps(inp_map, 0.0);
+
+        let mut exp_matches = HashSet::new();
+        exp_matches.insert(5421077);
+        exp_matches.insert(73943364);
+        exp_matches.insert(14933625);
+
+        let processed_sub1 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Processed(PathBuf::from("test-dirs/test/single-file/sub1.arr"), vec![
+                    Fingerprint { hash: 5421077, lines: (11, 12) },
+                    Fingerprint { hash: 31722361, lines: (15, 16) },
+                    Fingerprint { hash: 30182096, lines: (16, 16) },
+                    Fingerprint { hash: 14933625, lines: (17, 18) },
+                    Fingerprint { hash: 73943364, lines: (19, 19) }])]
+        };
+
+        let processed_sub2 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Processed(PathBuf::from("test-dirs/test/single-file/sub2.arr"), vec![
+                    Fingerprint { hash: 5421077, lines: (8, 10) },
+                    Fingerprint { hash: 14933625, lines: (13, 14) },
+                    Fingerprint { hash: 73943364, lines: (15, 15) }])]
+        };
+
+        let exp_out_sp = SubPair {
+            a: &processed_sub1,
+            a_percent: 0.6,
+            b: &processed_sub2,
+            b_percent: 1.0,
+            matches: exp_matches,
+            percentile: 1.0
+        };
+
+        assert_eq!(out, vec![exp_out_sp]);
+        Ok(())
+    }
+
+    #[test]
+    // tests expected output on four single-doc input subs in input FnvHashMap, namely that
+    // SubPairs are sorted by number of matches in output, percent/percentile values are correct,
+    // and pairs without overlap or below percentile threshold are omitted
+    fn test_multiple_pairs_output() -> io::Result<()> {
+        // original submissions
+        let mut sub1 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/single-file-subpairs/sub1.arr"))
+            ]
+        };
+        let mut sub2 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/single-file-subpairs/sub2.arr"))
+            ]
+        };
+        let mut sub3 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/single-file-subpairs/sub3.arr"))
+            ]
+        };
+        let mut sub4 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Unprocessed(PathBuf::from("test-dirs/test/single-file-subpairs/sub4.arr"))
+            ]
+        };
+
+        let mut submissions = vec![&mut sub1, &mut sub2, &mut sub3, &mut sub4];
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60)?;
+        let out_min_thresh = find_overlaps(inp_map, 0.0);
+        //let out_med_thresh = find_overlaps(inp_map, 0.5);
+
+        let processed_sub1 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Processed(PathBuf::from("test-dirs/test/single-file-subpairs/sub1.arr"), vec![
+                    Fingerprint { hash: 5421077, lines: (11, 12) },
+                    Fingerprint { hash: 31722361, lines: (15, 16) },
+                    Fingerprint { hash: 30182096, lines: (16, 16) },
+                    Fingerprint { hash: 14933625, lines: (17, 18) },
+                    Fingerprint { hash: 73943364, lines: (19, 19) },
+                    Fingerprint { hash: 21898048, lines: (22, 23) }])]
+        };
+
+        let processed_sub2 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Processed(PathBuf::from("test-dirs/test/single-file-subpairs/sub2.arr"), vec![
+                    Fingerprint { hash: 5421077, lines: (8, 10) },
+                    Fingerprint { hash: 14933625, lines: (13, 14) },
+                    Fingerprint { hash: 73943364, lines: (15, 15) }])]
+        };
+
+        let processed_sub4 = Sub {
+            dir_name: None,
+            documents: vec![
+                Doc::Processed(PathBuf::from("test-dirs/test/single-file-subpairs/sub4.arr"), vec![
+                    Fingerprint { hash: 5421353, lines: (5, 6) },
+                    Fingerprint { hash: 10580184, lines: (9, 10)},
+                    Fingerprint { hash: 14933625, lines: (11, 12) },
+                    Fingerprint { hash: 17304907, lines: (13, 14) },
+                    Fingerprint { hash: 21898048, lines: (17, 18) }])]
+        };
+
+        let mut sub1_sub2_matches = HashSet::new();
+        sub1_sub2_matches.insert(73943364);
+        sub1_sub2_matches.insert(5421077);
+        sub1_sub2_matches.insert(14933625);
+
+        let mut sub1_sub4_matches = HashSet::new();
+        sub1_sub4_matches.insert(21898048);
+        sub1_sub4_matches.insert(14933625);
+
+        let mut sub2_sub4_matches = HashSet::new();
+        sub2_sub4_matches.insert(14933625);
+
+        let sub1_sub2_pair = SubPair {
+            a: &processed_sub1,
+            a_percent: 0.5,
+            b: &processed_sub2,
+            b_percent: 1.0,
+            matches: sub1_sub2_matches,
+            percentile: 1.0
+        };
+
+        let sub1_sub4_pair = SubPair {
+            a: &processed_sub1,
+            a_percent: 1.0 / 3.0,
+            b: &processed_sub4,
+            b_percent: 0.4,
+            matches: sub1_sub4_matches,
+            percentile: 2.0 / 3.0
+        };
+
+        let sub2_sub4_pair = SubPair {
+            a: &processed_sub2,
+            a_percent: 1.0 / 3.0,
+            b: &processed_sub4,
+            b_percent: 0.2,
+            matches: sub2_sub4_matches,
+            percentile: 1.0 / 3.0
+        };
+
+        assert_eq!(out_min_thresh, vec![sub1_sub2_pair, sub1_sub4_pair, sub2_sub4_pair]);
+        //assert_eq!(out_med_thresh, vec![sub1_sub2_pair, sub1_sub4_pair]);
+
+        Ok(())
+    }
+
 }
