@@ -125,7 +125,6 @@ mod tests {
                 Fingerprint { hash: 711221822, lines: (1, 3) }, 
                 Fingerprint { hash: 981235476, lines: (3, 4) }, 
                 Fingerprint { hash: 678832721, lines: (4, 5) }];
-            let exp_lines = 5;
 
             // k=5, t=10
             let out_fps = analyze_file(
