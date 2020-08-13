@@ -92,6 +92,7 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: SubFileMode) -> Vec<Sub> {
                 let files = arr_files_in_dir(sub.as_path());
                 let mut docs = Vec::new();
 
+                // add an unprocessed document for each file in the submission
                 for file in files.iter() {
                     docs.push(Doc::Unprocessed(file.to_path_buf()));
                 }
@@ -213,7 +214,6 @@ mod tests {
 
     #[test]
     fn test_construct_subs() {
-
         // construct a submission from optional dirname & paths of docs
         fn mk_sub(dir_name: Option<&str>, docs: Vec<&str>) -> Sub {
             Sub {

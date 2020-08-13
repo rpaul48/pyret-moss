@@ -1,0 +1,2 @@
+This file already has some text in it.
+New text written after resuming.

@@ -37,77 +37,78 @@ impl Eq for SubPair<'_> {}
 fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
     -> Vec<SubPair<'a>> {
 
-        // ensure 0 <= threshold <= 1
-        if (threshold < 0.0) || (threshold > 1.0) {
-            err!("The input percentile threshold must be between 0 and 1 inclusive.");
-        }
+    // ensure 0 <= threshold <= 1
+    if (threshold < 0.0) || (threshold > 1.0) {
+        err!("The input percentile threshold must be between 0 and 1 inclusive.");
+    }
 
-        // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes
-        let mut pairs_to_hashes: HashMap<BTreeSet<&Sub>, HashSet<i64>> = HashMap::new();
+    // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes
+    let mut pairs_to_hashes: HashMap<BTreeSet<&Sub>, HashSet<i64>> = HashMap::new();
 
-        // the highest HashSet<i64> size value in the pairs_to_hashes map, to be updated
-        let mut max_num_hashes: usize = 0;
+    // the highest HashSet<i64> size value in the pairs_to_hashes map, to be updated
+    let mut max_num_hashes: usize = 0;
 
-        // iterate through hash_to_subs by key
-        for (hash, subs) in hash_to_subs {
-            // if the current key has a value containing more than one entry, make pairs
-            let subs_len: usize = subs.len();
-            if subs_len > 1 {
-                // get all possible pairs of submissions within subs
-                let ordered_subs: Vec<&&Sub> = Vec::from_iter(subs.iter());
-                let mut i: usize = 0;
+    // iterate through hash_to_subs by key
+    for (hash, subs) in hash_to_subs {
+        // if the current key has a value containing more than one entry, make pairs
+        let subs_len: usize = subs.len();
+        if subs_len > 1 {
+            // get all possible pairs of submissions within subs
+            let ordered_subs: Vec<&&Sub> = Vec::from_iter(subs.iter());
+            let mut i: usize = 0;
 
-                while i < (subs_len - 1) {
-                    let mut j: usize = i + 1;
-                    while j < (subs_len) {
-                        // the current pair of submissions, represented as an unordered set
-                        let mut sub_btset: BTreeSet<&Sub> = BTreeSet::new();
-                        sub_btset.insert(*ordered_subs[i]);
-                        sub_btset.insert(*ordered_subs[j]);
+            while i < (subs_len - 1) {
+                let mut j: usize = i + 1;
+                while j < (subs_len) {
+                    // the current pair of submissions, represented as an unordered set
+                    let mut sub_btset: BTreeSet<&Sub> = BTreeSet::new();
+                    sub_btset.insert(*ordered_subs[i]);
+                    sub_btset.insert(*ordered_subs[j]);
 
-                            // retrieve the size of the current value set, account for the
-                            // current element, which may or may not be added
-                            let mut num_hashes: usize = 0;
-                            let cur_val: Option<&HashSet<i64>> = pairs_to_hashes.get(&sub_btset);
-                            match cur_val {
-                                None => { num_hashes += 1; }
-                                Some(set) => {
-                                    if set.contains(&hash) {
-                                        // the hash wont be added to the set
-                                        num_hashes = set.len();
-                                    } else {
-                                        // the hash will be added to the set
-                                        num_hashes = set.len() + 1;
-                                    }
+                        // retrieve the size of the current value set, account for the
+                        // current element, which may or may not be added
+                        let mut num_hashes: usize = 0;
+                        let cur_val: Option<&HashSet<i64>> = pairs_to_hashes.get(&sub_btset);
+                        match cur_val {
+                            None => { num_hashes += 1; }
+                            Some(set) => {
+                                if set.contains(&hash) {
+                                    // the hash wont be added to the set
+                                    num_hashes = set.len();
+                                } else {
+                                    // the hash will be added to the set
+                                    num_hashes = set.len() + 1;
                                 }
                             }
+                        }
 
-                            // update max_num_hashes if the size of the current value set is
-                            // larger than the current value
-                            if num_hashes > max_num_hashes {
-                                max_num_hashes = num_hashes;
-                            }
+                        // update max_num_hashes if the size of the current value set is
+                        // larger than the current value
+                        if num_hashes > max_num_hashes {
+                            max_num_hashes = num_hashes;
+                        }
 
-                            // if sub_pair is not already a key in pairs_to_hashes, add it and
-                            // make it map to a set containing hash; otherwise, add hash to the
-                            // set sub_pair already maps to
-                            pairs_to_hashes.entry(sub_btset)
-                                .or_insert_with(HashSet::new)
-                                .insert(*hash);
-                        j += 1;
-                    }
-                    i += 1;
+                        // if sub_pair is not already a key in pairs_to_hashes, add it and
+                        // make it map to a set containing hash; otherwise, add hash to the
+                        // set sub_pair already maps to
+                        pairs_to_hashes.entry(sub_btset)
+                            .or_insert_with(HashSet::new)
+                            .insert(*hash);
+                    j += 1;
                 }
+                i += 1;
             }
+            i += 1;
         }
+    }
+    
+    // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
+    // to the subpairs Vec, which will eventually be returned as output
+    let mut subpairs: Vec<SubPair> = Vec::new();
 
-        // iterate through pairs_to_hashes, add a SubPair corresponding to each key-value pair
-        // to the subpairs Vec, which will eventually be returned as output
-        let mut subpairs: Vec<SubPair> = Vec::new();
-
-        for (sub_btset, matching_hashes) in pairs_to_hashes {
-            let mut sub_btset_iter = sub_btset.iter();
-            let num_hashes: usize = matching_hashes.len();
+    for (sub_btset, matching_hashes) in pairs_to_hashes {
+        let mut sub_btset_iter = sub_btset.iter();
+        let num_hashes: usize = matching_hashes.len();
 
             // the two subs in the subpairs
             let sub_a: &Sub = sub_btset_iter.next().unwrap();
@@ -164,8 +165,8 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
         // sort the pair_hash_tuples vec by descending percentile (same as sort by num of matches)
         subpairs.sort_by(|a, b| b.percentile.partial_cmp(&a.percentile).unwrap());
 
-        // return the populated, sorted output
-        subpairs
+    // return the populated, sorted output
+    subpairs
 }
 
 #[cfg(test)]
