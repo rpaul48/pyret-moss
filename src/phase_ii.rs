@@ -99,7 +99,6 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
                 }
                 i += 1;
             }
-            i += 1;
         }
     }
 
