@@ -117,8 +117,8 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
             let mut all_fp_hashes_a: HashSet<i64> = HashSet::new();
             for doc in &sub_a.documents {
                 match doc {
-                    Doc::Unprocessed(_pathbuf) => {
-                        err!("An Unprocessed Doc was found in {:?}", &sub_a.dir_name);
+                    Doc::Unprocessed(pathbuf) => {
+                        err!("An Unprocessed Doc was found in {:?}", pathbuf);
                         }
                     Doc::Processed(_pathbuf, fingerprints) => {
                         for fp in fingerprints {
@@ -132,8 +132,8 @@ fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold
             let mut all_fp_hashes_b: HashSet<i64> = HashSet::new();
             for doc in &sub_b.documents {
                 match doc {
-                    Doc::Unprocessed(_pathbuf) => {
-                        err!("An Unprocessed Doc was found in {:?}", &sub_b.dir_name);
+                    Doc::Unprocessed(pathbuf) => {
+                        err!("An Unprocessed Doc was found in {:?}", pathbuf);
                     }
                     Doc::Processed(_pathbuf, fingerprints) => {
                         for fp in fingerprints {
