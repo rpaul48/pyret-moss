@@ -33,11 +33,11 @@ pub enum Doc {
 
 fn main() {
     // parse command-line arguments
-	let args: Vec<String> = std::env::args().collect();
+    let args: Vec<String> = std::env::args().collect();
     let (sub_dir, opts) = cli::parse_args(&args);
     
     // debug!
-	println!("Submission directory: {}", sub_dir.display());
+    println!("Submission directory: {}", sub_dir.display());
     println!("Optional args: {:#?}", opts);
     
     // construct structs representing each submission in the indicated 
