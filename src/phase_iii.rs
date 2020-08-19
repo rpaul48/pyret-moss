@@ -3,6 +3,7 @@
 use std::collections::HashSet;
 use crate::phase_ii::SubPair;
 use crate::fingerprint::Fingerprint;
+use crate::{Sub, Doc};
 
 // An Entry indicates a particular section of a 
 // document within a submission.
@@ -70,9 +71,30 @@ pub fn analyze_pair(pair: SubPair) -> Vec<Match> {
 type SubStrTable<'a> = Vec<Vec<Cell<'a>>>;
 type FpVec = Vec<Option<Fingerprint>>;
 
+
+// Produce a vector of Options of all fingerprints in the given submission, 
+// with different documents delimited by None
+fn flatten_docs(sub: &Sub) -> FpVec {
+    let mut flat: Vec<Option<Fingerprint>> = Vec::new();
+
+    for doc in sub.documents.iter() {
+        flat.push(None);    // add None to delimit documents
+        match doc {
+            Doc::Processed(_, fps) => {
+                for fp in fps.iter() { flat.push(Some(*fp)); }
+            }
+            Doc::Unprocessed(_) => {
+                panic!("unprocessed document encountered while flattening (flatten_docs)");
+            }
+        };
+    }
+
+    flat
+}
+
 // Populates the DP table for longest common substring, using rows
 // & cols as the strings (documents are delimited by None)
-fn substring_table<'a>(rows: FpVec, cols: FpVec) -> SubStrTable<'a> {
+fn substr_table<'a>(rows: FpVec, cols: FpVec) -> SubStrTable<'a> {
     unimplemented!();
 }
 
@@ -92,4 +114,96 @@ fn trace_diagonal<'a>(table: &mut SubStrTable, row: usize, col: usize,
     primary: &FpVec, substr_cache: &'a mut HashSet<SubString>) -> &'a SubString {
     
     unimplemented!();
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_flatten_docs() {
+        {
+            let s = Sub {
+                dir_name: None,
+                documents: vec![
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 17, lines: (1, 2) },
+                        Fingerprint { hash: 38, lines: (3, 7) },
+                        Fingerprint { hash: 22, lines: (14, 18) }
+                    ]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 889, lines: (3, 3) },
+                        Fingerprint { hash: 24, lines: (4, 7) },
+                        Fingerprint { hash: 105, lines: (7, 10) }
+                    ]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 98, lines: (1, 5) }
+                    ])
+                ]
+            };
+
+            assert_eq!(
+                flatten_docs(&s),
+                vec![
+                    None,
+                    Some(Fingerprint { hash: 17, lines: (1, 2) }),
+                    Some(Fingerprint { hash: 38, lines: (3, 7) }),
+                    Some(Fingerprint { hash: 22, lines: (14, 18) }),
+                    None,
+                    Some(Fingerprint { hash: 889, lines: (3, 3) }),
+                    Some(Fingerprint { hash: 24, lines: (4, 7) }),
+                    Some(Fingerprint { hash: 105, lines: (7, 10) }),
+                    None,
+                    Some(Fingerprint { hash: 98, lines: (1, 5) })
+                ]);
+        }
+        {
+            let s = Sub {
+                dir_name: None,
+                documents: vec![
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 3812, lines: (31, 40) },
+                        Fingerprint { hash: 4722, lines: (40, 43) },
+                        Fingerprint { hash: 2139, lines: (42, 49) },
+                        Fingerprint { hash: 1274, lines: (45, 62) },
+                        Fingerprint { hash: 2347, lines: (55, 81) }
+                    ])
+                ]
+            };
+
+            assert_eq!(
+                flatten_docs(&s),
+                vec![
+                    None,
+                    Some(Fingerprint { hash: 3812, lines: (31, 40) }),
+                    Some(Fingerprint { hash: 4722, lines: (40, 43) }),
+                    Some(Fingerprint { hash: 2139, lines: (42, 49) }),
+                    Some(Fingerprint { hash: 1274, lines: (45, 62) }),
+                    Some(Fingerprint { hash: 2347, lines: (55, 81) })
+                ]);
+        }
+        {
+            let s = Sub {
+                dir_name: None,
+                documents: vec![
+                    Doc::Processed(PathBuf::from(""), vec![]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 41, lines: (31, 40) },
+                        Fingerprint { hash: 28, lines: (40, 43) }
+                    ])
+                ]
+            };
+
+            assert_eq!(
+                flatten_docs(&s),
+                vec![
+                    None,
+                    None,
+                    Some(Fingerprint { hash: 41, lines: (31, 40) }),
+                    Some(Fingerprint { hash: 28, lines: (40, 43) })
+                ]);
+        }
+    }
 }
