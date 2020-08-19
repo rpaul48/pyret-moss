@@ -1,3 +1,4 @@
+/* Phase II: Determine pairs of submission with significant fingerprint overlap */
 
 use std::collections::HashSet;
 use std::collections::HashMap;

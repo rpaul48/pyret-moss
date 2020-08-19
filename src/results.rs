@@ -1,7 +1,6 @@
 /* results.rs: Render findings of overlap between submissions, if any */
 
 use crate::{Sub, Doc};
-use std::collections::{HashSet, HashMap};
 use std::path::{Path, PathBuf, Component};
 use crate::cli::SubFileMode;
 use crate::phase_ii::SubPair;
@@ -319,6 +318,7 @@ fn get_lines(doc: &Doc, hash: i64) -> Vec<(i32, i32)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::HashSet;
     use crate::fingerprint::Fingerprint;
     use std::path::PathBuf;
 
@@ -431,18 +431,18 @@ mod tests {
 
             let sp = SubPair {
                 a: &a,
-                a_percent: 45.,
+                a_percent: 0.45,
                 b: &b,
-                b_percent: 78.,
+                b_percent: 0.78,
                 matches: matches,
-                percentile: 55.
+                percentile: 0.55
             };
 
             let a_name = String::from("sub1/");
             let b_name = String::from("sub2/");
 
             let exp_table = table!(
-                ["", Fcbic->"sub1/ (45%)", Fcbic->"sub2/ (78%)"],
+                ["", Fcbic->"sub1/ (45.00%)", Fcbic->"sub2/ (78.00%)"],
                 [bc->"1", "doc1.arr lines 10-15", "doc1.arr lines 5, 17-30"],   // fp 11
                 [bc->"2", "doc1.arr lines 1-3, 6-10\ndoc2.arr lines 44-57", "doc1.arr lines 8-12"], // fp 17
                 [bc->"3", "doc1.arr line 5\ndoc2.arr lines 25-30", "doc2.arr lines 8-10"] // fp 20
@@ -480,18 +480,18 @@ mod tests {
 
             let sp = SubPair {
                 a: &a,
-                a_percent: 22.,
+                a_percent: 0.22,
                 b: &b,
-                b_percent: 31.,
+                b_percent: 0.31,
                 matches: matches,
-                percentile: 55.
+                percentile: 0.55
             };
 
             let a_name = String::from("sub1.arr");
             let b_name = String::from("sub2.arr");
 
             let exp_table = table!(
-                ["", Fcbic->"sub1.arr (22%)", Fcbic->"sub2.arr (31%)"],
+                ["", Fcbic->"sub1.arr (22.00%)", Fcbic->"sub2.arr (31.00%)"],
                 [bc->"1", "line 5", "lines 38-42"],   // fp 12
                 [bc->"2", "lines 30-31", "lines 30-31"], // fp 17
                 [bc->"3", "lines 4-5, 11-22", "lines 17-29"] // fp 28
