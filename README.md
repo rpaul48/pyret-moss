@@ -12,11 +12,11 @@ To run the program over a folder of submissions, you may run a command of the fo
 
 - `--help` prints help information
 - `--single-file-subs` indicates that \<SUBMISSIONS-DIR> contains .arr files where each file is an individual submission
-- `--k <VALUE>` sets the noise threshold, $k$
-- `--t <VALUE>` sets the guarantee threshold, $t$
+- `-k <VALUE>` sets the noise threshold, $k$
+- `-t <VALUE>` sets the guarantee threshold, $t$
 - `--ignore <DIR>` indicates submission matches with .arr files in DIR should be ignored
 - `--match-threshold <VALUE>` only report submission pairs whose match percentage is at least VALUE (0-100)
-- `--o <FILE>` writes the output to a file at path represented by FILE instead of stdout
+- `-o <FILE>` writes the output to a file at path represented by FILE instead of stdout
 - `--verbose` more logging
 - `--no-pauses` don't pause for confirmation to continue when rendering results
 
