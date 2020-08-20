@@ -112,7 +112,7 @@ fn substr_table(rows: &FpVec, cols: &FpVec) -> SubStrTable {
 
 // Choose longest common substrings from the substring table such that each row/col 
 // fingerprint has at least 1 of their longest common substrings in the chosen set
-fn choose_substrs(rows: &FpVec, cols: &FpVec, table: SubStrTable) -> HashSet<SubString> {
+fn choose_substrs(rows: &FpVec, cols: &FpVec, table: &SubStrTable) -> HashSet<SubString> {
     unimplemented!();
 }
 
@@ -509,6 +509,132 @@ mod tests {
             // trying to trace at a 0-cell is an error
             let result = std::panic::catch_unwind(|| trace_diagonal(&table, (&rows, &cols), (2, 1), (0, 0)));
             assert!(result.is_err());
+        }
+    }
+
+    #[test]
+    fn test_choose_substrs() {
+        {
+            let rows = vec![
+                None, 
+                Some(Fingerprint { hash: 1, lines: (1, 5) }), 
+                Some(Fingerprint { hash: 2, lines: (5, 7) }), 
+                Some(Fingerprint { hash: 1, lines: (10, 15) }), 
+                Some(Fingerprint { hash: 2, lines: (20, 31) })];
+
+            let cols = vec![
+                None, 
+                Some(Fingerprint { hash: 2, lines: (3, 9) }), 
+                Some(Fingerprint { hash: 1, lines: (10, 22) }), 
+                Some(Fingerprint { hash: 2, lines: (18, 24) }), 
+                None, 
+                Some(Fingerprint { hash: 1, lines: (14, 17) }), 
+                Some(Fingerprint { hash: 2, lines: (16, 19) }), 
+                Some(Fingerprint { hash: 1, lines: (20, 22) })];
+
+            let table = vec![
+                vec![0, 0, 0, 0, 0, 0, 0, 0],
+                vec![0, 0, 1, 0, 0, 1, 0, 1],
+                vec![0, 1, 0, 2, 0, 0, 2, 0],
+                vec![0, 0, 2, 0, 0, 1, 0, 3],
+                vec![0, 1, 0, 3, 0, 0, 2, 0]
+            ];
+
+            let mut exp = HashSet::new();
+            exp.insert(SubString {
+                size: 3,
+                hashes: vec![1, 2, 1],
+                a_entry: Entry {
+                    doc_idx: 0,
+                    lines: (14, 22)
+                },
+                b_entry: Entry {
+                    doc_idx: 1,
+                    lines: (1, 15)
+                }
+            });
+            exp.insert(SubString {
+                size: 3,
+                hashes: vec![2, 1, 2],
+                a_entry: Entry {
+                    doc_idx: 0,
+                    lines: (5, 31)
+                },
+                b_entry: Entry {
+                    doc_idx: 0,
+                    lines: (3, 24)
+                }
+            });
+
+            assert_eq!(choose_substrs(&rows, &cols, &table), exp);
+        }
+        {
+            let rows = vec![
+                None, 
+                Some(Fingerprint { hash: 7, lines: (2, 19) }), 
+                Some(Fingerprint { hash: 8, lines: (15, 22) }), 
+                Some(Fingerprint { hash: 7, lines: (30, 35) }), 
+                Some(Fingerprint { hash: 8, lines: (34, 39) }),
+                Some(Fingerprint { hash: 9, lines: (40, 42) })];
+
+            let cols = vec![
+                None, 
+                Some(Fingerprint { hash: 7, lines: (14, 20) }), 
+                Some(Fingerprint { hash: 8, lines: (16, 22) }), 
+                Some(Fingerprint { hash: 9, lines: (18, 24) }), 
+                None,
+                Some(Fingerprint { hash: 7, lines: (4, 8) }), 
+                Some(Fingerprint { hash: 8, lines: (10, 24) }), 
+                Some(Fingerprint { hash: 11, lines: (21, 40) })];
+
+            let table = vec![
+                vec![0, 0, 0, 0, 0, 0, 0, 0],
+                vec![0, 1, 0, 0, 0, 1, 0, 0],
+                vec![0, 0, 2, 0, 0, 0, 2, 0],
+                vec![0, 1, 0, 0, 0, 1, 0, 0],
+                vec![0, 0, 2, 0, 0, 0, 2, 0],
+                vec![0, 0, 0, 3, 0, 0, 0, 0]
+            ];
+
+            let mut exp = HashSet::new();
+            exp.insert(SubString {
+                size: 2,
+                hashes: vec![7, 8],
+                a_entry: Entry {
+                    doc_idx: 0,
+                    lines: (2, 22)
+                },
+                b_entry: Entry {
+                    doc_idx: 0,
+                    lines: (14, 22)
+                }
+            });
+            exp.insert(SubString {
+                size: 3,
+                hashes: vec![7, 8, 9],
+                a_entry: Entry {
+                    doc_idx: 0,
+                    lines: (30, 42)
+                },
+                b_entry: Entry {
+                    doc_idx: 0,
+                    lines: (14, 24)
+                }
+            });
+            exp.insert(SubString {
+                size: 2,
+                hashes: vec![7, 8],
+                a_entry: Entry {
+                    doc_idx: 0,
+                    lines: (2, 22)
+                },
+                b_entry: Entry {
+                    doc_idx: 1,
+                    lines: (4, 24)
+                }
+            });
+
+            assert_eq!(choose_substrs(&rows, &cols, &table), exp);
         }
     }
 }
