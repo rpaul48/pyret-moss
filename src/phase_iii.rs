@@ -33,15 +33,6 @@ struct SubString {
     b_entry: Entry
 }
 
-// In the DP table for our modified-longest-common-substring problem with hashes, 
-// a Cell represents either the length of a common substring in a subproblem,
-// or a reference to a cached SubString struct that runs through the current table cell.
-#[derive(Debug, PartialEq, Clone)]
-enum Cell<'a> {
-    Count(usize),
-    CachedSubStr(&'a SubString)
-}
-
 // Analyzes a pair of submissions to determine how overlap should be reported.
 // Matches (each of which is backed by a common substring of fingerprint hashes)
 // are selected such that the following property holds:
@@ -55,22 +46,21 @@ enum Cell<'a> {
 pub fn analyze_pair(pair: SubPair) -> Vec<Match> {
     unimplemented!();
     /*
-    Set up fingerprint vectors for sub A and B
+    Set up rows/cols fingerprint vectors for sub A and B
     substr_cache & chosen_substrs are both HashSets
 
     table = substring_table()   // do the initial finding of substrings
 
-    choose_substrs(primary = rows (A), secondary = cols (B))    // choose substrings for Sub A fps
+    chosen_substrings = choose_substrings(...)
 
-    choose_substrs(primary = cols (B), secondary = rows (A))    // choose substrings for Sub B fps
-
+    // Match formation
     construct map from hash vector to SubStrings that share that hash vector
     use map to construct Vec<Match> by combining SubString entries that share same hash vector
     order Vec<Match> by size
     */
 }
 
-type SubStrTable<'a> = Vec<Vec<Cell<'a>>>;
+type SubStrTable = Vec<Vec<usize>>;
 type FpVec = Vec<Option<Fingerprint>>;
 
 // Produce a vector of Options of all fingerprints in the given submission, 
@@ -95,7 +85,7 @@ fn flatten_docs(sub: &Sub) -> FpVec {
 
 // Populates the DP table for longest common substring, using rows
 // & cols as the strings (documents are delimited by None)
-fn substr_table<'a>(rows: &FpVec, cols: &FpVec) -> SubStrTable<'a> {
+fn substr_table(rows: &FpVec, cols: &FpVec) -> SubStrTable {
     let mut table = Vec::new();
 
     for (r, row_el) in rows.iter().enumerate() {
@@ -105,182 +95,84 @@ fn substr_table<'a>(rows: &FpVec, cols: &FpVec) -> SubStrTable<'a> {
             // if both are fingerprints with the same hash
             if let (Some(row_fp), Some(col_fp)) = (row_el, col_el) {
                 if (row_fp.hash == col_fp.hash) {
-                    // get the count from the top-left cell
-                    match table[r - 1][c - 1] {
-                        Cell::Count(prev) => {
-                            // write top-left diagonal + 1
-                            table[r].push(Cell::Count(prev + 1));
-                            continue;
-                        },
-                        _ => {
-                            panic!("non-count cell encountered while constructing substring table");
-                        }
-                    };
+                    // write top-left diagonal + 1 to this cell
+                    let diag = table[r - 1][c - 1];
+                    table[r].push(diag + 1);
+                    continue;
                 }
             }
 
             // if either is None, or hashes are unequal, write 0
-            table[r].push(Cell::Count(0));
+            table[r].push(0);
         }
     }
 
     table
 }
 
-// Chooses longest common substrings that include fingerprints in the primary.
-// (secondary is other dimension of the table)
-// Updates cache with newly created substrings, adds chosen substrings to chosen_substrs
-// Updates table to include references to substrings in the cache
-fn choose_substrs<'a>(row_primary: bool, rows: &FpVec, cols: &FpVec, table: &'a mut SubStrTable<'a>,
-    substr_cache: &'a mut HashSet<SubString>, chosen_substrs: &mut HashSet<&'a SubString>) {
-    
-    let (primary, secondary) = if row_primary { (rows, cols) } else { (cols, rows) };
-    let mut prim_doc_idx = 0;
-    let mut sec_doc_idx = 0;
-
-    for (p, prim_elt) in primary.iter().enumerate() {
-        // if document delimiter, increment doc idx & move on
-        if prim_elt.is_none() && p > 0 {
-            prim_doc_idx += 1;
-            continue;
-        }
-
-        let mut max: Option<(usize, bool, &SubString)> = None;
-
-        // find the max substring along the secondary dimension
-        for (s, sec_elt) in secondary.iter().enumerate() {
-            // if document delimiter, increment & continue
-            if sec_elt.is_none() && s > 0 {
-                sec_doc_idx += 1;
-                continue;
-            }
-
-            let cell = if row_primary { &table[p][s] } else { &table[s][p] };
-
-            let substr = match cell {
-                Cell::Count(n) => {
-                    if *n == 0 {
-                        // not a substring--move on
-                        continue;
-                    } else {
-                        let (r, c) = if row_primary { (p, s) } else { (s, p) };
-
-                        let prim_entry = Entry {
-                            doc_idx: prim_doc_idx,
-                            lines: prim_elt.unwrap().lines
-                        };
-                        let sec_entry = Entry {
-                            doc_idx: sec_doc_idx,
-                            lines: sec_elt.unwrap().lines
-                        };
-
-                        let entries = if row_primary {
-                            (prim_entry, sec_entry)
-                        } else {
-                            (sec_entry, prim_entry)
-                        };
-
-                        // substring not yet cached: compute & cache
-                        trace_diagonal(table, r, c, rows, cols, entries, Vec::new(), substr_cache)
-                    }
-                },
-                Cell::CachedSubStr(s) => s,
-            };
-
-            match max {
-                Some((size, already_chosen, maxes)) => {
-                    // if longer substring, accept
-                    if substr.size > size {
-                        max = Some((substr.size, chosen_substrs.contains(&substr), substr));
-
-                    // if equivalent length, favor already chosen substrings
-                    } else if substr.size == size && !already_chosen {
-                        let chosen = chosen_substrs.contains(&substr);
-                        if chosen {
-                            max = Some((substr.size, chosen, substr));
-                        }
-                    }
-                }
-                None => {
-                    // accept as max
-                    max = Some((substr.size, chosen_substrs.contains(&substr), substr));
-                }
-            };
-        }
-
-        // if a max is found & not yet chosen
-        if let Some((_, chosen, substr)) = max {
-            if !chosen {
-                chosen_substrs.insert(substr);
-            }
-        }
-    }
+// Choose longest common substrings from the substring table such that each row/col 
+// fingerprint has at least 1 of their longest common substrings in the chosen set
+fn choose_substrs(rows: &FpVec, cols: &FpVec, table: SubStrTable) -> HashSet<SubString> {
+    unimplemented!();
 }
 
-// Trace diagonally down/right from table[row][col] to construct a SubString, storing
-// it in the cache & adding a reference to it at every cell on the diagonal
-fn trace_diagonal<'a>(table: &mut SubStrTable<'a>, r: usize, c: usize, 
-    rows: &FpVec, cols: &FpVec, mut entries_so_far: (Entry, Entry), 
-    mut hashes_so_far: Vec<i64>, substr_cache: &'a mut HashSet<SubString>) -> &'a SubString {
-    // first, validate cell
-    match table[r][c] {
-        Cell::Count(n) => {
-            if n == 0 { panic!("tried to trace diagonal on 0-count cell"); }
+// Trace diagonally down/right from table[r][c] to construct a SubString 
+// representing the substring that lies on that diagonal
+fn trace_diagonal(table: &SubStrTable, dims: (&FpVec, &FpVec), 
+    coord: (usize, usize), docs: (usize, usize)) -> SubString {
 
-            // because count > 0, these both must be Some()
-            let row_elt = rows[r].unwrap();
-            let col_elt = cols[c].unwrap();
+    let (rows, cols) = dims;
+    let (mut r, mut c) = coord;
 
-            // add current cell's shared hash to the hashes in this substring.
-            // because count != 0, hash is shared, so arbitrarily use the row element's hash
-            hashes_so_far.push(row_elt.hash);
+    // 1 indicates start of substring--shouldn't be called anywhere else
+    if table[r][c] != 1 {
+        panic!("tried to trace diagonal on cell with value {}", table[r][c]);
+    }
 
-            // compute new entries from previous (following the diagonal, entries 
-            // take the minimum starting line & maximum ending line to delimit the 
-            // line range over which the entry occurs)
-            let (Entry { doc_idx: a_doc, lines: (a_min, a_max) },
-                Entry { doc_idx: b_doc, lines: (b_min, b_max) }) = entries_so_far;
+    let mut hashes = Vec::new();
+    let mut lines: Option<((i32, i32), (i32, i32))> = None;
 
-            entries_so_far = (
-                Entry { doc_idx: a_doc, lines: (min(a_min, row_elt.lines.0), max(a_max, row_elt.lines.1)) },
-                Entry { doc_idx: b_doc, lines: (min(b_min, col_elt.lines.0), max(b_max, col_elt.lines.1)) }
-            );
+    // while there's more diagonal to be processed
+    while r < rows.len() && c < cols.len() && table[r][c] != 0 {
+        let a_elt = rows[r].unwrap();
+        let b_elt = cols[c].unwrap();
 
-            // get a reference to the substring the cell is a part of
-            let ref_to_substr = {
-                // if diagonally downward/rightward is out of bounds or 0
-                if r + 1 >= rows.len() || c + 1 >= cols.len() || 
-                    table[r + 1][c + 1] == Cell::Count(0) {
-                    // diagonal has been followed all the way, construct a new substring
-                    let substr = SubString {
-                        size: hashes_so_far.len(),
-                        hashes: hashes_so_far,
-                        a_entry: entries_so_far.0,
-                        b_entry: entries_so_far.1
-                    };
+        hashes.push(a_elt.hash);    // hashes match, so arbitrarily add A's
 
-                    // insert a copy into the cache
-                    substr_cache.insert(substr.clone());
+        // update line ranges to extend maximally
+        match lines {
+            Some((a_lines, b_lines)) => {
+                lines = Some((
+                    (min(a_lines.0, a_elt.lines.0), max(a_lines.1, a_elt.lines.1)),
+                    (min(b_lines.0, b_elt.lines.0), max(b_lines.1, b_elt.lines.1))));
+            },
+            None => {
+                lines = Some((a_elt.lines, b_elt.lines));
+            }
+        };
 
-                    // get a reference the to just-inserted substring
-                    // (the one in the cache, so no lifetime issues)
-                    substr_cache.get(&substr).unwrap()
+        // move diagonally down/rightward
+        r += 1;
+        c += 1;
+    }
 
-                // if still more substring to look at, recur on the diagonal
-                } else {
-                    trace_diagonal(table, r + 1, c + 1, rows, cols, entries_so_far, 
-                        hashes_so_far, substr_cache)
-                }
-            };
-
-            // cache reference in table & return it
-            table[r][c] = Cell::CachedSubStr(ref_to_substr);
-            return ref_to_substr;
-        },
-        _ => {
-            panic!("tried to trace diagonal on a non-count cell");
-        }
-    };
+    if let Some(lines) = lines {
+        // construct the SubString
+        return SubString {
+            size: hashes.len(),
+            hashes: hashes,
+            a_entry: Entry {
+                doc_idx: docs.0,
+                lines: lines.0
+            },
+            b_entry: Entry {
+                doc_idx: docs.1,
+                lines: lines.1
+            }
+        };
+    } else {
+        panic!("no lines were found in tracing diagonal");
+    }
 }
 
 
@@ -376,7 +268,6 @@ mod tests {
 
     #[test]
     fn test_substr_table() {
-        use Cell::Count;
         {
             // single document each
             let rows = vec![
@@ -397,12 +288,12 @@ mod tests {
             ];
 
             let exp_table = vec![
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(1), Count(0)],
-                vec![Count(0), Count(1), Count(0), Count(0), Count(2)],
-                vec![Count(0), Count(0), Count(2), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(1), Count(0), Count(0), Count(1)]
+                vec![0, 0, 0, 0, 0],
+                vec![0, 0, 0, 1, 0],
+                vec![0, 1, 0, 0, 2],
+                vec![0, 0, 2, 0, 0],
+                vec![0, 0, 0, 0, 0],
+                vec![0, 1, 0, 0, 1]
             ];
 
             assert_eq!(substr_table(&rows, &cols), exp_table);
@@ -433,13 +324,13 @@ mod tests {
             ];
 
             let exp_table = vec![
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(1), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(1), Count(0), Count(0), Count(0), Count(0), Count(1)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0), Count(2), Count(0), Count(1), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(1), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0)]
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0],
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+                vec![0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
+                vec![0, 0, 0, 0, 0, 2, 0, 1, 0, 0],
+                vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
             ];
 
             assert_eq!(substr_table(&rows, &cols), exp_table);
@@ -467,13 +358,13 @@ mod tests {
             ];
 
             let exp_table = vec![
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(1), Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(1), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(2), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0), Count(3), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0), Count(0), Count(4)],
-                vec![Count(0), Count(1), Count(0), Count(0), Count(0), Count(0), Count(0)],
+                vec![0, 0, 0, 0, 0, 0, 0],
+                vec![0, 1, 0, 0, 0, 0, 0],
+                vec![0, 0, 0, 1, 0, 0, 0],
+                vec![0, 0, 0, 0, 2, 0, 0],
+                vec![0, 0, 0, 0, 0, 3, 0],
+                vec![0, 0, 0, 0, 0, 0, 4],
+                vec![0, 1, 0, 0, 0, 0, 0],
             ];
 
             assert_eq!(substr_table(&rows, &cols), exp_table);
@@ -482,116 +373,142 @@ mod tests {
 
     #[test]
     fn test_trace_diagonal() {
-        use Cell::{Count, CachedSubStr};
         {
             let rows = vec![
-                None,
-                Some(Fingerprint { hash: 180, lines: (2, 3) }),
-                Some(Fingerprint { hash: 17, lines: (6, 10) }),
-                Some(Fingerprint { hash: 224, lines: (11, 13) }),
-                Some(Fingerprint { hash: 61, lines: (20, 22) }),
-                Some(Fingerprint { hash: 17, lines: (24, 30) })
-            ];
+                None, 
+                Some(Fingerprint { hash: 1, lines: (1, 5) }), 
+                Some(Fingerprint { hash: 2, lines: (5, 7) }), 
+                Some(Fingerprint { hash: 1, lines: (10, 15) }), 
+                Some(Fingerprint { hash: 2, lines: (20, 31) })];
 
             let cols = vec![
-                None,
-                Some(Fingerprint { hash: 17, lines: (7, 14) }),
-                Some(Fingerprint { hash: 224, lines: (26, 29) }),
-                Some(Fingerprint { hash: 180, lines: (34, 39) }),
-                Some(Fingerprint { hash: 17, lines: (46, 50) })
+                None, 
+                Some(Fingerprint { hash: 2, lines: (3, 9) }), 
+                Some(Fingerprint { hash: 1, lines: (10, 22) }), 
+                Some(Fingerprint { hash: 2, lines: (18, 24) }), 
+                None, 
+                Some(Fingerprint { hash: 1, lines: (14, 17) }), 
+                Some(Fingerprint { hash: 2, lines: (16, 19) }), 
+                Some(Fingerprint { hash: 1, lines: (20, 22) })];
+
+            let table = vec![
+                vec![0, 0, 0, 0, 0, 0, 0, 0],
+                vec![0, 0, 1, 0, 0, 1, 0, 1],
+                vec![0, 1, 0, 2, 0, 0, 2, 0],
+                vec![0, 0, 2, 0, 0, 1, 0, 3],
+                vec![0, 1, 0, 3, 0, 0, 2, 0]
             ];
 
-            let mut table = vec![
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(1), Count(0)],
-                vec![Count(0), Count(1), Count(0), Count(0), Count(2)],
-                vec![Count(0), Count(0), Count(2), Count(0), Count(0)],
-                vec![Count(0), Count(0), Count(0), Count(0), Count(0)],
-                vec![Count(0), Count(1), Count(0), Count(0), Count(1)]
+            // trace at r=1, c=2
+            assert_eq!(
+                trace_diagonal(&table, (&rows, &cols), (1, 2), (0, 0)),
+                SubString {
+                    size: 2,
+                    hashes: vec![1, 2],
+                    a_entry: Entry {
+                        doc_idx: 0,
+                        lines: (1, 7)
+                    },
+                    b_entry: Entry {
+                        doc_idx: 0,
+                        lines: (10, 24)
+                    }
+                });
+
+            // trace at r=1, c=5
+            assert_eq!(
+                trace_diagonal(&table, (&rows, &cols), (1, 5), (0, 1)),
+                SubString {
+                    size: 3,
+                    hashes: vec![1, 2, 1],
+                    a_entry: Entry {
+                        doc_idx: 0,
+                        lines: (1, 15)
+                    },
+                    b_entry: Entry {
+                        doc_idx: 1,
+                        lines: (14, 22)
+                    }
+                });
+
+            // trace at r=4, c=1
+            assert_eq!(
+                trace_diagonal(&table, (&rows, &cols), (4, 1), (0, 0)),
+                SubString {
+                    size: 1,
+                    hashes: vec![2],
+                    a_entry: Entry {
+                        doc_idx: 0,
+                        lines: (20, 31)
+                    },
+                    b_entry: Entry {
+                        doc_idx: 0,
+                        lines: (3, 9)
+                    }
+                });
+        }
+        {
+            let rows = vec![
+                None, 
+                Some(Fingerprint { hash: 100, lines: (12, 14) }), 
+                Some(Fingerprint { hash: 200, lines: (13, 18) }), 
+                Some(Fingerprint { hash: 300, lines: (20, 25) }), 
+                Some(Fingerprint { hash: 400, lines: (24, 29) }),
+                Some(Fingerprint { hash: 500, lines: (30, 41) })];
+
+            let cols = vec![
+                None, 
+                Some(Fingerprint { hash: 100, lines: (2, 5) }), 
+                None, 
+                Some(Fingerprint { hash: 200, lines: (1, 3) }), 
+                Some(Fingerprint { hash: 300, lines: (4, 5) }), 
+                Some(Fingerprint { hash: 400, lines: (7, 18) }),
+                Some(Fingerprint { hash: 500, lines: (15, 22) })];
+
+            let table = vec![
+                vec![0, 0, 0, 0, 0, 0, 0],
+                vec![0, 1, 0, 0, 0, 0, 0],
+                vec![0, 0, 0, 1, 0, 0, 0],
+                vec![0, 0, 0, 0, 2, 0, 0],
+                vec![0, 0, 0, 0, 0, 3, 0],
+                vec![0, 0, 0, 0, 0, 0, 4]
             ];
-            let mut exp_table = table.clone();
 
-            let mut cache: HashSet<SubString> = HashSet::new();
+            // trace at r=1, c=1
+            assert_eq!(
+                trace_diagonal(&table, (&rows, &cols), (1, 1), (0, 0)),
+                SubString {
+                    size: 1,
+                    hashes: vec![100],
+                    a_entry: Entry {
+                        doc_idx: 0,
+                        lines: (12, 14)
+                    },
+                    b_entry: Entry {
+                        doc_idx: 0,
+                        lines: (2, 5)
+                    }
+                });
 
-            // ------ First Test: trace the substring starting at row=1, col=3 ------
-            let entries1 = (
-                Entry {
-                    doc_idx: 0,
-                    lines: rows[1].unwrap().lines
-                },
-                Entry {
-                    doc_idx: 0,
-                    lines: cols[3].unwrap().lines
-                }
-            );
+            // trace at r=2, c=3
+            assert_eq!(
+                trace_diagonal(&table, (&rows, &cols), (2, 3), (0, 1)),
+                SubString {
+                    size: 4,
+                    hashes: vec![200, 300, 400, 500],
+                    a_entry: Entry {
+                        doc_idx: 0,
+                        lines: (13, 41)
+                    },
+                    b_entry: Entry {
+                        doc_idx: 1,
+                        lines: (1, 22)
+                    }
+                });
 
-            let out1 = trace_diagonal(&mut table, 1, 3, &rows, &cols, entries1, vec![], &mut cache);
-
-            // substring expected to be constructed
-            let substr1 = SubString {
-                size: 2,
-                hashes: vec![180, 17],
-                a_entry: Entry {
-                    doc_idx: 0,
-                    lines: (2, 10)
-                },
-                b_entry: Entry {
-                    doc_idx: 0,
-                    lines: (34, 50)
-                }
-            };
-
-            // check that it returns reference to constructed substring
-            assert_eq!(out1, &substr1);
-
-            // check that table was updated to use refs to cache substring now
-            exp_table[1][3] = CachedSubStr(&substr1);
-            exp_table[2][4] = CachedSubStr(&substr1);
-            assert_eq!(table, exp_table);
-
-            // check that cache includes new substring
-            let mut exp_cache = HashSet::new(); exp_cache.insert(substr1.clone());
-            assert_eq!(cache, exp_cache);
-
-
-            // // ------ Second Test: trace the substring starting at row=5, col=1 ------
-            // let entries2 = (
-            //     Entry {
-            //         doc_idx: 0,
-            //         lines: rows[5].unwrap().lines
-            //     },
-            //     Entry {
-            //         doc_idx: 0,
-            //         lines: cols[1].unwrap().lines
-            //     }
-            // );
-
-            // let out2 = trace_diagonal(&mut table, 5, 1, &rows, &cols, entries2, vec![], &mut cache);
-
-            // // substring expected to be constructed
-            // let substr2 = SubString {
-            //     size: 1,
-            //     hashes: vec![17],
-            //     a_entry: Entry {
-            //         doc_idx: 0,
-            //         lines: (24, 30)
-            //     },
-            //     b_entry: Entry {
-            //         doc_idx: 0,
-            //         lines: (7, 14)
-            //     }
-            // };
-
-            // // check that it returns reference to constructed substring
-            // assert_eq!(out2, &substr2);
-
-            // // check that table was updated to use refs to cache substring now
-            // exp_table[5][1] = CachedSubStr(&substr2);
-            // assert_eq!(table, exp_table);
-
-            // // check that cache includes new substring
-            // exp_cache.insert(substr2.clone());
-            // assert_eq!(cache, exp_cache);
+            // trying to trace at a 0-cell is an error
+            let result = std::panic::catch_unwind(|| trace_diagonal(&table, (&rows, &cols), (2, 1), (0, 0)));
+            assert!(result.is_err());
         }
     }
 }
