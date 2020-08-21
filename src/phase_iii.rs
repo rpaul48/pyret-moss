@@ -1,13 +1,12 @@
 /* Phase III: Find common substrings of fingerprints in a submission pair */
 
-use std::collections::{HashSet, HashMap, BTreeMap};
+use std::collections::{HashSet, BTreeMap};
 use std::cmp::{min, max};
 use crate::phase_ii::SubPair;
 use crate::fingerprint::Fingerprint;
 use crate::{Sub, Doc};
 
-// An Entry indicates a particular section of a 
-// document within a submission.
+// An Entry indicates a particular section of a document within a submission.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Entry {
     pub doc_idx: usize,
@@ -16,7 +15,7 @@ pub struct Entry {
 
 // A Match indicates a set of entries from submission A which all share 
 // a particular string of fingerprint hashes with a set of entries from B.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Match {
     pub size: usize,
     pub a_entries: HashSet<Entry>,
@@ -33,6 +32,9 @@ struct SubString {
     b_entry: Entry
 }
 
+type SubStrTable = Vec<Vec<usize>>;
+type FpVec = Vec<Option<Fingerprint>>;
+
 // Analyzes a pair of submissions to determine how overlap should be reported.
 // Matches (each of which is backed by a common substring of fingerprint hashes)
 // are selected such that the following property holds:
@@ -43,25 +45,54 @@ struct SubString {
 // It's possible that a shared fingerprint appear in more than one match (it 
 // may be part of the LCS that includes some other fingerprint), but it must 
 // appear at least once.
-pub fn analyze_pair(pair: SubPair) -> Vec<Match> {
-    unimplemented!();
-    /*
-    Set up rows/cols fingerprint vectors for sub A and B
-    substr_cache & chosen_substrs are both HashSets
+pub fn analyze_pair(pair: &SubPair) -> Vec<Match> {
+    // encode submission fingerprints as single vector of fingerprint options
+    let rows = flatten_docs(pair.a);
+    let cols = flatten_docs(pair.b);
 
-    table = substring_table()   // do the initial finding of substrings
+    // construct/populate dynamic programming table for longest common substring,
+    // using sub A and B's fingerprints as rows & cols, respectively
+    let table = substr_table(&rows, &cols);
 
-    chosen_substrings = choose_substrings(...)
+    // choose set of common substrings that maintain above property ^^^
+    let chosen_substrs = choose_substrs(&rows, &cols, &table);
 
-    // Match formation
-    construct map from hash vector to SubStrings that share that hash vector
-    use map to construct Vec<Match> by combining SubString entries that share same hash vector
-    order Vec<Match> by size
-    */
+    let mut hash_vec_to_substrs = BTreeMap::new();
+
+    // for each chosen substring
+    for s in chosen_substrs {
+        // map hash vector to substrings with this vector
+        hash_vec_to_substrs.entry(s.hashes.clone())
+            .or_insert_with(HashSet::new)
+            .insert(s);
+    }
+
+    let mut matches = Vec::new();
+
+    // for each collection of substrings with the same hash vector
+    for (hash_vec, substrs) in hash_vec_to_substrs {
+        let mut a_entries = HashSet::new();
+        let mut b_entries = HashSet::new();
+
+        // collect all a entries into a set, likewise with b entries
+        for s in substrs {
+            a_entries.insert(s.a_entry);
+            b_entries.insert(s.b_entry);
+        }
+
+        // construct Match containing all the a & b entries
+        matches.push(Match {
+            size: hash_vec.len(),
+            a_entries: a_entries,
+            b_entries: b_entries
+        });
+    }
+
+    // sort by match size (size of hash vector), descending
+    matches.sort_by(|a, b| b.size.cmp(&a.size));
+
+    matches
 }
-
-type SubStrTable = Vec<Vec<usize>>;
-type FpVec = Vec<Option<Fingerprint>>;
 
 // Produce a vector of Options of all fingerprints in the given submission, 
 // with different documents delimited by None
@@ -796,5 +827,163 @@ mod tests {
         let exp_col_out: HashSet<usize> = [0].iter().cloned().collect();
 
         assert_eq!(col_out, exp_col_out);
+    }
+
+    // turn a vector into a hashset (convenience)
+    fn set<T: Clone+Eq+std::hash::Hash>(elts: Vec<T>) -> HashSet<T> {
+        elts.iter().cloned().collect()
+    }
+
+    #[test]
+    fn test_analyze_pair() {
+        {
+            let a = Sub {
+                dir_name: Some(PathBuf::from("")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 11, lines: (2, 7) },
+                        Fingerprint { hash: 22, lines: (6, 12) },
+                        Fingerprint { hash: 33, lines: (8, 18) },
+                        Fingerprint { hash: 11, lines: (22, 30) }
+                    ]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 22, lines: (1, 4) },
+                        Fingerprint { hash: 11, lines: (4, 5) },
+                        Fingerprint { hash: 22, lines: (5, 5) },
+                        Fingerprint { hash: 33, lines: (6, 9) },
+                        Fingerprint { hash: 67, lines: (10, 13) }
+                    ])
+                ]
+            };
+            let b = Sub {
+                dir_name: Some(PathBuf::from("")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 22, lines: (3, 5) }
+                    ]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 22, lines: (4, 4) },
+                        Fingerprint { hash: 33, lines: (5, 8) },
+                        Fingerprint { hash: 11, lines: (7, 11) }
+                    ]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 98, lines: (2, 3) },
+                        Fingerprint { hash: 41, lines: (4, 10) },
+                        Fingerprint { hash: 22, lines: (15, 25) },
+                        Fingerprint { hash: 11, lines: (18, 27) },
+                        Fingerprint { hash: 22, lines: (29, 35) },
+                        Fingerprint { hash: 33, lines: (30, 39) }
+                    ])
+                ]
+            };
+
+            let sp = SubPair {
+                a: &a,
+                a_percent: 0.0,
+                b: &b,
+                b_percent: 0.0,
+                matches: set(vec![11, 22, 33]),
+                percentile: 0.0
+            };
+
+            let exp_matches = vec![
+                // [22, 11, 22, 33]
+                Match {
+                    size: 4,
+                    a_entries: set(vec![ Entry { doc_idx: 1, lines: (1, 9) } ]),
+                    b_entries: set(vec![ Entry { doc_idx: 2, lines: (15, 39) } ])
+                },
+                // [11, 22, 33]
+                Match {
+                    size: 3,
+                    a_entries: set(vec![ Entry { doc_idx: 0, lines: (2, 18) } ]),
+                    b_entries: set(vec![ Entry { doc_idx: 2, lines: (18, 39) } ])
+                },
+                // [22, 33, 11]
+                Match {
+                    size: 3,
+                    a_entries: set(vec![ Entry { doc_idx: 0, lines: (6, 30) } ]),
+                    b_entries: set(vec![ Entry { doc_idx: 1, lines: (4, 11) } ])
+                },
+                // [22]
+                Match {
+                    size: 1,
+                    a_entries: set(vec![ Entry { doc_idx: 0, lines: (6, 12) } ]),
+                    b_entries: set(vec![ Entry { doc_idx: 0, lines: (3, 5) } ])
+                }
+            ];
+
+            assert_eq!(analyze_pair(&sp), exp_matches);
+        }
+        {
+            let a = Sub {
+                dir_name: Some(PathBuf::from("")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 1, lines: (5, 5) },
+                        Fingerprint { hash: 2, lines: (6, 8) },
+                        Fingerprint { hash: 100, lines: (10, 20) },
+                        Fingerprint { hash: 200, lines: (24, 28) },
+                        Fingerprint { hash: 3, lines: (26, 33) },
+                        Fingerprint { hash: 100, lines: (29, 40) },
+                        Fingerprint { hash: 200, lines: (42, 48) },
+                        Fingerprint { hash: 4, lines: (50, 53) }
+                    ]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 100, lines: (3, 7) },
+                        Fingerprint { hash: 200, lines: (5, 11) },
+                    ])
+                ]
+            };
+            let b = Sub {
+                dir_name: Some(PathBuf::from("")),
+                documents: vec![
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 5, lines: (5, 10) },
+                        Fingerprint { hash: 100, lines: (9, 18) },
+                        Fingerprint { hash: 200, lines: (17, 26) }
+                    ]),
+                    Doc::Processed(PathBuf::from(""), vec![
+                        Fingerprint { hash: 6, lines: (1, 22) },
+                        Fingerprint { hash: 7, lines: (18, 35) },
+                        Fingerprint { hash: 8, lines: (30, 36) },
+                        Fingerprint { hash: 100, lines: (39, 44) },
+                        Fingerprint { hash: 200, lines: (44, 45) },
+                        Fingerprint { hash: 9, lines: (47, 47) },
+                        Fingerprint { hash: 100, lines: (51, 52) },
+                        Fingerprint { hash: 200, lines: (55, 58) },
+                        Fingerprint { hash: 10, lines: (61, 66) }
+                    ])
+                ]
+            };
+
+            let sp = SubPair {
+                a: &a,
+                a_percent: 0.0,
+                b: &b,
+                b_percent: 0.0,
+                matches: set(vec![100, 200]),
+                percentile: 0.0
+            };
+
+            let exp_matches = vec![
+                // [100, 200]
+                Match {
+                    size: 2,
+                    a_entries: set(vec![ 
+                        Entry { doc_idx: 0, lines: (10, 28) },
+                        Entry { doc_idx: 0, lines: (29, 48) },
+                        Entry { doc_idx: 1, lines: (3, 11) }
+                    ]),
+                    b_entries: set(vec![ 
+                        Entry { doc_idx: 0, lines: (9, 26) },
+                        Entry { doc_idx: 1, lines: (39, 45) },
+                        Entry { doc_idx: 1, lines: (51, 58) }
+                    ])
+                }
+            ];
+
+            assert_eq!(analyze_pair(&sp), exp_matches);
+        }
     }
 }
