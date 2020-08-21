@@ -1,7 +1,7 @@
-# Pyret MoSS
-Pyret MoSS is a command line application for determining the similarity of programs written in [Pyret](https://www.pyret.org/). It was inspired by the "Measure of Software Similarity" system developed at Stanford, and its core ideas can be found in [this paper](http://theory.stanford.edu/~aiken/publications/papers/sigmod03.pdf).
+# Pyret Moss
+Pyret Moss is a command line application for determining the similarity of programs written in [Pyret](https://www.pyret.org/). It was inspired by the "Measure of Software Similarity" system developed at Stanford, and its core ideas can be found in [this paper](http://theory.stanford.edu/~aiken/publications/papers/sigmod03.pdf).
 
-Please note that while the primary intended use case for this program is to help detect plagiarism across homework assignment submissions written in Pyret, **proof of plagiarism may not be guaranteed solely from the similarity scores returned in the output**. Instructors should manually check pairs of submissions with high similarity scores before determining the presence of plagiarism. The responsibility of MoSS is to present the **relative similarity** between pairs of submissions, leaving the decision of what constitutes plagiarism to the instructor. More information about understanding output can be found in the corresponding section below.
+Please note that while the primary intended use case for this program is to help detect plagiarism across homework assignment submissions written in Pyret, **proof of plagiarism may not be guaranteed solely from the similarity scores returned in the output**. Instructors should manually check pairs of submissions with high similarity scores before determining the presence of plagiarism. The responsibility of Moss is to present the **relative similarity** between pairs of submissions, leaving the decision of what constitutes plagiarism to the instructor. More information about understanding output can be found in the corresponding section below.
 
 ## How to Build and Run
 To run the program over a folder of submissions, you may run a command of the following form from the root directory:
