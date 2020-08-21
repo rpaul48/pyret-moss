@@ -1,19 +1,21 @@
 /* cli.rs: Functions for providing the command-line interface */
 
 use std::path::Path;
+use std::collections::HashSet;
 
 // OptArgs encodes important system parameters that have default values
 // but can be set via the command line interface
 #[derive(Debug, PartialEq)]
 pub struct OptArgs<'a> {
-    pub sub_mode: SubFileMode,          // indicates whether subs are files or dirs
-    pub k: i32,                         // noise threshold
-    pub t: i32,                         // guarantee threshold
-    pub match_threshold: f64,           // include sub pairs whose match percentage is at least this big
-    pub ignore_dir: Option<&'a Path>,   // dir of files indicating expected overlap to ignore
-    pub out_file: Option<&'a Path>,     // where the program's result summary will be written (default stdout)
-    pub verbose: bool,                  // option to increase intensity of logging
-    pub no_pauses: bool                 // if true, don't pause to confirm when rendering output pairs
+    pub sub_mode: SubFileMode,                  // indicates whether subs are files or dirs
+    pub k: i32,                                 // noise threshold
+    pub t: i32,                                 // guarantee threshold
+    pub match_threshold: f64,                   // include sub pairs whose match percentage is at least this big
+    pub ignore_content_dir: Option<&'a Path>,   // dir of files indicating expected overlap to ignore
+    pub ignore_files: Option<HashSet<String>>,  // filenames of files to ignore
+    pub out_file: Option<&'a Path>,             // where the program's result summary will be written (default stdout)
+    pub verbose: bool,                          // option to increase intensity of logging
+    pub no_pauses: bool                         // if true, don't pause to confirm when rendering output pairs
 }
 
 // SubFileMode indicates how submissions should be found within 
@@ -36,7 +38,8 @@ impl Default for OptArgs<'_> {
             k: 15,
             t: 20,
             match_threshold: 0.0f64,
-            ignore_dir: None,
+            ignore_content_dir: None,
+            ignore_files: None,
             out_file: None,
             verbose: false,
             no_pauses: false
@@ -99,9 +102,20 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
                 let out_file = unwrap_next(arg, iter.next());
                 options.out_file = Some(&Path::new(out_file));
             },
-            "--ignore" => {
-                let ignore_dir = unwrap_next(arg, iter.next());
-                options.ignore_dir = Some(&Path::new(ignore_dir));
+            "--ignore-content" => {
+                let ignore_content_dir = unwrap_next(arg, iter.next());
+                options.ignore_content_dir = Some(&Path::new(ignore_content_dir));
+            },
+            "--ignore-files" => {
+                let arg_string = unwrap_next(arg, iter.next());
+                let mut ignore_files = HashSet::new();
+
+                // add each filename to the set
+                for file_name in arg_string.split(" ") {
+                    ignore_files.insert(String::from(file_name));
+                }
+
+                options.ignore_files = Some(ignore_files);
             },
             "--match-threshold" => {
                 let thresh_str = unwrap_next(arg, iter.next());
@@ -163,25 +177,26 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
 fn print_help(exec: &String) {
     // this is no good but I want to be able to use it as a formatting 
     // string and I don't want to write out the whitespace explicitly
-    println!("\
+    println!(r#"
 Copy-detection for Pyret
 
 USAGE:
-    {} <SUBMISSIONS-DIR> [OPTIONS]
+  {} <SUBMISSIONS-DIR> [OPTIONS]
 
 SUBMISSIONS-DIR indicates a directory containing submissions (either individual .arr
 files or subdirectories of .arr files)
 
 OPTIONS:
-    --help                      Prints this help information
-    --single-file-subs          Indicates that submissions will be treated as single .arr files
-    -k <VALUE>                  Sets the noise threshold, k
-    -t <VALUE>                  Sets the guarantee threshold, t
-    --ignore <DIR>              Indicates submission matches with the .arr files in DIR should be ignored
-    --match-threshold <VALUE>   Only report submission pairs whose match percentage is at least VALUE (0-100)
-    -o <FILE>                   Writes the analysis to FILE instead of stdout
-    --verbose                   More logging
-    --no-pauses                 Don't pause for confirmation to continue when rendering results", 
+  --help                              Prints this help information
+  --single-file-subs                  Indicates that submissions will be treated as single .arr files
+  -k <VALUE>                          Sets the noise threshold, k
+  -t <VALUE>                          Sets the guarantee threshold, t
+  --ignore-content <DIR>              Portions of submissions that match the content of the files in <DIR> will be ignored
+  --ignore-files "<FILE>{{ <FILE>}}"    Indicates a set of filenames to ignore from every submission
+  --match-threshold <VALUE>           Only report submission pairs whose match percentage is at least VALUE (0-100)
+  -o <FILE>                           Writes the analysis to FILE instead of stdout
+  --verbose                           More logging
+  --no-pauses                         Don't pause for confirmation to continue when rendering results"#, 
     exec);
 
     std::process::exit(0);
@@ -230,7 +245,7 @@ mod tests {
                 "./pyret-moss",
                 "-k",
                 "10",
-                "--ignore",
+                "--ignore-content",
                 "./dirs/ignore",
                 "./subs"
             ]);
@@ -242,7 +257,8 @@ mod tests {
                 sub_mode: SubFileMode::Multi,
                 k: 10,
                 t: 20,
-                ignore_dir: Some(&Path::new("./dirs/ignore")),
+                ignore_content_dir: Some(&Path::new("./dirs/ignore")),
+                ignore_files: None,
                 match_threshold: 0.0,
                 out_file: None,
                 verbose: false,
@@ -263,7 +279,7 @@ mod tests {
                 "-t",
                 "25",
                 "--single-file-subs",
-                "--ignore",
+                "--ignore-content",
                 "./boilerplate",
                 "--no-pauses"
             ]);
@@ -275,9 +291,39 @@ mod tests {
                 sub_mode: SubFileMode::Single,
                 k: 20,
                 t: 25,
-                ignore_dir: Some(&Path::new("./boilerplate")),
+                ignore_content_dir: Some(&Path::new("./boilerplate")),
+                ignore_files: None,
                 match_threshold: 0.168,
                 out_file: Some(&Path::new("~/Desktop/analysis.txt")),
+                verbose: true,
+                no_pauses: true
+            });
+        }
+        {
+            let args = to_vec_string(vec![
+                "./pyret-moss",
+                "./submissions",
+                "--ignore-files",
+                "common.arr test.arr",
+                "--verbose",
+                "--no-pauses"
+            ]);
+
+            let (sub_dir, opt_args) = parse_args(&args);
+
+            let mut ignore_files = HashSet::new();
+            ignore_files.insert(String::from("common.arr"));
+            ignore_files.insert(String::from("test.arr"));
+
+            assert_eq!(sub_dir, Path::new("./submissions"));
+            assert_eq!(opt_args, OptArgs {
+                sub_mode: SubFileMode::Multi,
+                k: 15,
+                t: 20,
+                ignore_content_dir: None,
+                ignore_files: Some(ignore_files),
+                match_threshold: 0.0,
+                out_file: None,
                 verbose: true,
                 no_pauses: true
             });

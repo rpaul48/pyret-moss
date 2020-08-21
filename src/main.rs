@@ -3,6 +3,7 @@
 #[macro_use] mod error;
 extern crate regex;
 use std::path::PathBuf;
+use std::collections::HashSet;
 use crate::fingerprint::Fingerprint;
 mod cli;
 mod fingerprint;
@@ -36,14 +37,20 @@ fn main() {
     // parse command-line arguments
     let args: Vec<String> = std::env::args().collect();
     let (sub_dir, opts) = cli::parse_args(&args);
-    
+
+    // get set of filenames to ignore (or empty if none)
+    let ignore_files = match opts.ignore_files {
+        Some(s) => s,
+        None => HashSet::new()
+    };
+
     // construct structs representing each submission in the indicated 
     // directory & submission mode (single/multi file)
-    let mut subs = file_io::construct_subs(sub_dir, &opts.sub_mode);
+    let mut subs = file_io::construct_subs(sub_dir, &opts.sub_mode, &ignore_files);
 
     // if a directory of files to ignore is given, construct a set 
     // of fingerprints to ignore when considering matches
-    let ignore_set = match opts.ignore_dir {
+    let ignore_set = match opts.ignore_content_dir {
         Some(p) => Some(phase_i::make_ignore_set(p, opts.k, opts.t)),
         None => None,
     };

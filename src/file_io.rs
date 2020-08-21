@@ -1,6 +1,7 @@
 /* file_io.rs: File I/O */
 
 use std::fs;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 use std::io;
 use crate::{Sub, Doc};
@@ -52,7 +53,7 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
 
 // Build a vector of submissions by traversing the given directory 
 // in a manner specified by the sub_mode
-pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode) -> Vec<Sub> {
+pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode, ignore_files: &HashSet<String>) -> Vec<Sub> {
     let mut subs = Vec::new();
 
     if !sub_dir.is_dir() {  // validate submission directory
@@ -94,7 +95,12 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode) -> Vec<Sub> {
 
                 // add an unprocessed document for each file in the submission
                 for file in files.iter() {
-                    docs.push(Doc::Unprocessed(file.to_path_buf()));
+                    let fname = file.file_name().unwrap().to_str().unwrap();
+
+                    // don't include files that are ignored (by filename)
+                    if !ignore_files.contains(fname) {
+                        docs.push(Doc::Unprocessed(file.to_path_buf()));
+                    }
                 }
 
                 subs.push(Sub {
@@ -227,9 +233,10 @@ mod tests {
             }
         }
 
+        // single-file subs
         {
             let sub_dir = Path::new("./test-dirs/test/single-file");
-            let mut out = construct_subs(sub_dir, &SubFileMode::Single);
+            let mut out = construct_subs(sub_dir, &SubFileMode::Single, &HashSet::new());
             let mut exp_subs = vec![
                 mk_sub(None, vec![
                     "./test-dirs/test/single-file/sub1.arr"
@@ -242,9 +249,10 @@ mod tests {
             out.sort(); exp_subs.sort();
             assert_eq!(out, exp_subs);
         }
+        // multi-file subs
         {
             let sub_dir = Path::new("./test-dirs/test/multi-file");
-            let mut out = construct_subs(sub_dir, &SubFileMode::Multi);
+            let mut out = construct_subs(sub_dir, &SubFileMode::Multi, &HashSet::new());
             let mut exp_subs = vec![
                 mk_sub(Some("./test-dirs/test/multi-file/sub1"), vec![
                     "./test-dirs/test/multi-file/sub1/common.arr",
@@ -252,6 +260,30 @@ mod tests {
                 ]),
                 mk_sub(Some("./test-dirs/test/multi-file/sub2"), vec![
                     "./test-dirs/test/multi-file/sub2/common.arr",
+                    "./test-dirs/test/multi-file/sub2/main.arr"
+                ])
+            ];
+            
+            for o in out.iter_mut() { o.documents.sort(); }
+            for e in exp_subs.iter_mut() { e.documents.sort(); }
+            out.sort(); exp_subs.sort();
+
+            assert_eq!(out, exp_subs);
+        }
+        // check ignore files by name
+        {
+            let sub_dir = Path::new("./test-dirs/test/multi-file");
+
+            // ignore common.arr files
+            let mut ignore_files = HashSet::new();
+            ignore_files.insert(String::from("common.arr"));
+
+            let mut out = construct_subs(sub_dir, &SubFileMode::Multi, &ignore_files);
+            let mut exp_subs = vec![
+                mk_sub(Some("./test-dirs/test/multi-file/sub1"), vec![
+                    "./test-dirs/test/multi-file/sub1/main.arr"
+                ]),
+                mk_sub(Some("./test-dirs/test/multi-file/sub2"), vec![
                     "./test-dirs/test/multi-file/sub2/main.arr"
                 ])
             ];
