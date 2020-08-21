@@ -4,14 +4,15 @@
 extern crate regex;
 use std::path::PathBuf;
 use crate::fingerprint::Fingerprint;
+mod cli;
 mod fingerprint;
 mod normalize;
 mod file_io;
+mod io_redirect;
 mod phase_i;
 mod phase_ii;
-mod cli;
+mod phase_iii;
 mod results;
-mod io_redirect;
 
 // Sub represents a student submission.
 // Depending on whether input submissions are directories or
@@ -32,165 +33,36 @@ pub enum Doc {
 }
 
 fn main() {
+    // parse command-line arguments
+    let args: Vec<String> = std::env::args().collect();
+    let (sub_dir, opts) = cli::parse_args(&args);
+    
+    // construct structs representing each submission in the indicated 
+    // directory & submission mode (single/multi file)
+    let mut subs = file_io::construct_subs(sub_dir, &opts.sub_mode);
 
-    use std::env;
-	let args: Vec<String> = env::args().collect();
-	let (sub_dir, opts) = cli::parse_args(&args);
-	println!("Submission directory: {}", sub_dir.display());
-	println!("Optional args: {:#?}", opts);
+    // if a directory of files to ignore is given, construct a set 
+    // of fingerprints to ignore when considering matches
+    let ignore_set = match opts.ignore_dir {
+        Some(p) => Some(phase_i::make_ignore_set(p, opts.k, opts.t)),
+        None => None,
+    };
 
+    // construct vec of mutable borrows of each sub for passing to sub analysis
+    let mut mut_sub_refs = Vec::new();
+    for sub in subs.iter_mut() {
+        mut_sub_refs.push(sub);
+    }
 
+    // process all documents in each submission, mapping fingerprints 
+    // to all submissions in which they appeared
+    let hash_to_subs = phase_i::analyze_subs(&mut mut_sub_refs, ignore_set, opts.k, opts.t);
 
-    // use crate::results::render_results;
-    // use crate::phase_ii::SubPair;
-    // use crate::cli::SubFileMode;
-    // use std::path::{Path, PathBuf};
-    // use std::collections::HashSet;
+    // group submissions into pairs based on shared fingerprints, and 
+    // order according to the number of fingerprints shared
+    let (sub_pairs, total_pairs) = phase_ii::find_overlaps(&hash_to_subs, opts.match_threshold);
 
-    // // ------------------- Multi File Subs -----------------------------
-
-    // let a = Sub {
-    //     dir_name: Some(PathBuf::from("subs/sub1")),
-    //     documents: vec![
-    //         Doc::Processed(PathBuf::from("subs/sub1/doc1.arr"), vec![
-    //             Fingerprint { hash: 17, lines: (1, 3) },
-    //             Fingerprint { hash: 20, lines: (5, 5) },
-    //             Fingerprint { hash: 17, lines: (6, 10) },
-    //             Fingerprint { hash: 11, lines: (10, 11) },
-    //             Fingerprint { hash: 11, lines: (12, 15) }
-    //         ]),
-    //         Doc::Processed(PathBuf::from("subs/sub1/doc2.arr"), vec![
-    //             Fingerprint { hash: 51, lines: (21, 24) },
-    //             Fingerprint { hash: 20, lines: (25, 30) },
-    //             Fingerprint { hash: 17, lines: (44, 57) }
-    //         ])
-    //     ]
-    // };
-    // let b = Sub {
-    //     dir_name: Some(PathBuf::from("subs/sub2/")),
-    //     documents: vec![
-    //         Doc::Processed(PathBuf::from("subs/sub2/doc1.arr"), vec![
-    //             Fingerprint { hash: 11, lines: (5, 5) },
-    //             Fingerprint { hash: 17, lines: (8, 12) },
-    //             Fingerprint { hash: 40, lines: (12, 12) },
-    //             Fingerprint { hash: 11, lines: (17, 30) },
-    //             Fingerprint { hash: 33, lines: (29, 34) }
-    //         ]),
-    //         Doc::Processed(PathBuf::from("subs/sub2/doc2.arr"), vec![
-    //             Fingerprint { hash: 12, lines: (3, 4) },
-    //             Fingerprint { hash: 28, lines: (4, 4) },
-    //             Fingerprint { hash: 20, lines: (8, 10) }
-    //         ])
-    //     ]
-    // };
-    // let c = Sub {
-    //     dir_name: Some(PathBuf::from("subs/sub3/")),
-    //     documents: vec![
-    //         Doc::Processed(PathBuf::from("subs/sub3/doc1.arr"), vec![
-    //             Fingerprint { hash: 11, lines: (3, 11) },
-    //             Fingerprint { hash: 11, lines: (22, 24) },
-    //             Fingerprint { hash: 77, lines: (24, 24) },
-    //             Fingerprint { hash: 11, lines: (27, 44) },
-    //             Fingerprint { hash: 17, lines: (50, 51) }
-    //         ]),
-    //         Doc::Processed(PathBuf::from("subs/sub3/doc2.arr"), vec![
-    //             Fingerprint { hash: 88, lines: (16, 24) },
-    //             Fingerprint { hash: 30, lines: (25, 30) },
-    //             Fingerprint { hash: 33, lines: (55, 63) }
-    //         ])
-    //     ]
-    // };
-
-    // let m1: HashSet<i64> = [11, 17, 20].iter().cloned().collect();
-    // let p1 = SubPair {
-    //     a: &a,
-    //     a_percent: 22.331,
-    //     b: &b,
-    //     b_percent: 39.273,
-    //     matches: m1,
-    //     percentile: 100.0
-    // };
-    // let m2: HashSet<i64> = [11, 17].iter().cloned().collect();
-    // let p2 = SubPair {
-    //     a: &a,
-    //     a_percent: 36.1132,
-    //     b: &c,
-    //     b_percent: 78.12,
-    //     matches: m2,
-    //     percentile: 66.6
-    // };
-    // let m3: HashSet<i64> = [11, 17, 33].iter().cloned().collect();
-    // let p3 = SubPair {
-    //     a: &b,
-    //     a_percent: 48.1,
-    //     b: &c,
-    //     b_percent: 96.1235,
-    //     matches: m3,
-    //     percentile: 100.0
-    // };
-
-
-    // ---------------------- Single File ---------------------------
-
-    // let a = Sub {
-    //     dir_name: None,
-    //     documents: vec![
-    //         Doc::Processed(PathBuf::from("submissions/sub1.arr"), vec![
-    //             Fingerprint { hash: 28, lines: (4, 5) },
-    //             Fingerprint { hash: 12, lines: (5, 5) },
-    //             Fingerprint { hash: 28, lines: (11, 15) },
-    //             Fingerprint { hash: 28, lines: (16, 19) },
-    //             Fingerprint { hash: 28, lines: (18, 22) },
-    //             Fingerprint { hash: 17, lines: (30, 31) }
-    //         ])
-    //     ]
-    // };
-    // let b = Sub {
-    //     dir_name: None,
-    //     documents: vec![
-    //         Doc::Processed(PathBuf::from("submissions/sub2.arr"), vec![
-    //             Fingerprint { hash: 31, lines: (9, 15) },
-    //             Fingerprint { hash: 28, lines: (17, 17) },
-    //             Fingerprint { hash: 28, lines: (17, 29) },
-    //             Fingerprint { hash: 17, lines: (30, 31) },
-    //             Fingerprint { hash: 12, lines: (38, 42) }
-    //         ])
-    //     ]
-    // };
-    // let c = Sub {
-    //     dir_name: None,
-    //     documents: vec![
-    //         Doc::Processed(PathBuf::from("submissions/sub3.arr"), vec![
-    //             Fingerprint { hash: 31, lines: (9, 15) },
-    //             Fingerprint { hash: 28, lines: (17, 17) },
-    //             Fingerprint { hash: 28, lines: (30, 63) },
-    //             Fingerprint { hash: 17, lines: (70, 76) },
-    //             Fingerprint { hash: 12, lines: (77, 77) }
-    //         ])
-    //     ]
-    // };
-
-    // let p1 = SubPair {
-    //     a: &a,
-    //     a_percent: 22.,
-    //     b: &b,
-    //     b_percent: 31.,
-    //     matches: [12, 17, 28].iter().cloned().collect(),
-    //     percentile: 75.
-    // };
-    // let p2 = SubPair {
-    //     a: &b,
-    //     a_percent: 38.111,
-    //     b: &c,
-    //     b_percent: 98.2,
-    //     matches: [31, 28, 17, 12].iter().cloned().collect(),
-    //     percentile: 100.
-    // };
-
-    // let subs = vec![&a, &b, &c];
-    // let pairs = vec![p3, p1, p2];
-    // let mode = SubFileMode::Multi;
-    // let out_file: Option<&Path> = None; //Some(&Path::new("test-dirs/tinker/output.txt"));
-
-    // render_results(subs, pairs, &mode, out_file, 0.0, 17, false);
+    // render a report to the user detailing submission overlap
+    results::render_results(sub_pairs, &opts.sub_mode, opts.out_file, 
+        opts.match_threshold, total_pairs, opts.no_pauses);
 }

@@ -29,7 +29,7 @@ fn analyze_file(path: &Path, k: i32, t: i32) -> io::Result<Vec<Fingerprint>> {
 // Construct a set of fingerprints to ignore by
 // reading/normalizing/fingerprinting the given files
 // k, t are fingerprint params
-pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> io::Result<HashSet<i64>> {
+pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> HashSet<i64> {
     let ignore_paths = file_io::arr_files_in_dir(ignore_dir);
     let mut ignore_set = HashSet::new();
 
@@ -38,19 +38,23 @@ pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> io::Result<HashSet<
     }
 
     for path in ignore_paths.iter() {
-        let fps = analyze_file(path, k, t)?;
+        // normalize/fingerprint this ignore file
+        let fps = match analyze_file(path, k, t) {
+            Ok(v) => v,
+            Err(e) => { err!("failed to analyze file {}: {}", path.display(), e); }
+        };
 
         // add all fingerprint hashes to ignore set
         for fp in fps.iter() { ignore_set.insert(fp.hash); }
     }
 
-    Ok(ignore_set)
+    ignore_set
 }
 
 // Read/normalize/fingerprint documents in given submissions, constructing
 // a hashmap from fingerprint hashes to the set of subs that share that hash
 pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i64>>,
-    k: i32, t: i32) -> io::Result<FnvHashMap<i64, HashSet<&'a Sub>>> {
+    k: i32, t: i32) -> FnvHashMap<i64, HashSet<&'a Sub>> {
 
     let mut fp_to_subs = FnvHashMap::default();
 
@@ -65,7 +69,11 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
                 Doc::Processed(_, _) => panic!("Already processed document: {:?}", doc),
             };
 
-            let fps = analyze_file(doc_path, k, t)?;
+            // attempt to normalize/fingerprint document
+            let fps = match analyze_file(doc_path, k, t) {
+                Ok(v) => v,
+                Err(e) => { err!("failed to analyze file {}: {}", doc_path.display(), e); }
+            };
 
             // filter out ignored fingerprints, if any
             let fps = match ignore {
@@ -92,7 +100,7 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
         }
     }
 
-    Ok(fp_to_subs)
+    fp_to_subs
 }
 
 
@@ -102,7 +110,7 @@ mod tests {
     use std::path::PathBuf;
 
     #[test]
-    fn test_read_and_fingerprint() -> io::Result<()> {
+    fn test_analyze_file() -> io::Result<()> {
         let dir = "./test-dirs/test/read-and-fingerprint/";
 
         {
@@ -137,9 +145,9 @@ mod tests {
     }
 
     #[test]
-    fn test_ignore_set() -> io::Result<()> {
+    fn test_ignore_set() {
         {
-            let ignore = make_ignore_set(&Path::new("test-dirs/test/ignore"), 10, 25)?;
+            let ignore = make_ignore_set(&Path::new("test-dirs/test/ignore"), 10, 25);
 
             let exp_set: HashSet<i64> = [
                 // ignore1.arr
@@ -156,7 +164,7 @@ mod tests {
             assert_eq!(ignore, exp_set);
         }
         {
-            let ignore = make_ignore_set(&Path::new("test-dirs/test/ignore"), 6, 10)?;
+            let ignore = make_ignore_set(&Path::new("test-dirs/test/ignore"), 6, 10);
 
             let exp_set: HashSet<i64> = [
                 // ignore1.arr
@@ -178,8 +186,6 @@ mod tests {
 
             assert_eq!(ignore, exp_set);
         }
-
-        Ok(())
     }
 
     // Converts an array of Sub references into a hashset of the same refs
@@ -188,7 +194,7 @@ mod tests {
     }
 
     #[test]
-    fn test_analyze_single_files() -> io::Result<()> {
+    fn test_analyze_single_files() {
         // original submissions
         let mut sub1 = Sub {
             dir_name: None,
@@ -204,7 +210,7 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let out = analyze_subs(&mut submissions, None, 10, 60)?;
+        let out = analyze_subs(&mut submissions, None, 10, 60);
 
         // submissions after analysis
         let proc_sub1 = Sub {
@@ -244,12 +250,10 @@ mod tests {
         exp_out.insert(73943364, set(&[&proc_sub1, &proc_sub2]));
 
         assert_eq!(out, exp_out);
-
-        Ok(())
     }
 
     #[test]
-    fn test_analyze_multi_files() -> io::Result<()> {
+    fn test_analyze_multi_files() {
         // original submissions
         let mut sub1 = Sub {
             dir_name: Some(PathBuf::from("test-dirs/test/multi-file/sub1")),
@@ -267,7 +271,7 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let out = analyze_subs(&mut submissions, None, 5, 15)?;
+        let out = analyze_subs(&mut submissions, None, 5, 15);
 
         // submissions after analysis
         let proc_sub1 = Sub {
@@ -337,12 +341,10 @@ mod tests {
         exp_out.insert(674376277, set(&[&proc_sub2]));
 
         assert_eq!(out, exp_out);
-
-        Ok(())
     }
 
     #[test]
-    fn test_analyze_with_ignore() -> io::Result<()> {
+    fn test_analyze_with_ignore() {
         // original submissions
         let mut sub1 = Sub {
             dir_name: Some(PathBuf::from("test-dirs/test/multi-file/sub1")),
@@ -370,7 +372,7 @@ mod tests {
         ].iter().cloned().collect();
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let out = analyze_subs(&mut submissions, Some(ignore_set), 5, 15)?;
+        let out = analyze_subs(&mut submissions, Some(ignore_set), 5, 15);
 
         // submissions after analysis
         let proc_sub1 = Sub {
@@ -425,9 +427,6 @@ mod tests {
         exp_out.insert(674376277, set(&[&proc_sub2]));
 
         assert_eq!(out, exp_out);
-
-        Ok(())
-
     }
 
 }

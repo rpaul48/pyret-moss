@@ -50,9 +50,9 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     }
 }
 
-// Build a vector of submissions by traversing the given directory in a 
-// manner specified by the sub_mode
-pub fn construct_subs(sub_dir: &Path, sub_mode: SubFileMode) -> Vec<Sub> {
+// Build a vector of submissions by traversing the given directory 
+// in a manner specified by the sub_mode
+pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode) -> Vec<Sub> {
     let mut subs = Vec::new();
 
     if !sub_dir.is_dir() {  // validate submission directory
@@ -229,7 +229,7 @@ mod tests {
 
         {
             let sub_dir = Path::new("./test-dirs/test/single-file");
-            let mut out = construct_subs(sub_dir, SubFileMode::Single);
+            let mut out = construct_subs(sub_dir, &SubFileMode::Single);
             let mut exp_subs = vec![
                 mk_sub(None, vec![
                     "./test-dirs/test/single-file/sub1.arr"
@@ -244,7 +244,7 @@ mod tests {
         }
         {
             let sub_dir = Path::new("./test-dirs/test/multi-file");
-            let mut out = construct_subs(sub_dir, SubFileMode::Multi);
+            let mut out = construct_subs(sub_dir, &SubFileMode::Multi);
             let mut exp_subs = vec![
                 mk_sub(Some("./test-dirs/test/multi-file/sub1"), vec![
                     "./test-dirs/test/multi-file/sub1/common.arr",

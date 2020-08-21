@@ -181,8 +181,8 @@ OPTIONS:
     --match-threshold <VALUE>   Only report submission pairs whose match percentage is at least VALUE (0-100)
     -o <FILE>                   Writes the analysis to FILE instead of stdout
     --verbose                   More logging
-    --no-pauses                 Don't pause for confirmation to continue when rendering results
-", exec);
+    --no-pauses                 Don't pause for confirmation to continue when rendering results", 
+    exec);
 
     std::process::exit(0);
 }
