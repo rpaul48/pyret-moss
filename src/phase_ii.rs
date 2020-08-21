@@ -177,7 +177,6 @@ mod tests {
     use crate::fingerprint::Fingerprint;
     use crate::Doc::Processed;
     use crate::phase_i::analyze_subs;
-    use std::io;
     use std::path::PathBuf;
 
     #[test]

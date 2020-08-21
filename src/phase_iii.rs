@@ -125,7 +125,7 @@ fn substr_table(rows: &FpVec, cols: &FpVec) -> SubStrTable {
         for (c, col_el) in cols.iter().enumerate() {
             // if both are fingerprints with the same hash
             if let (Some(row_fp), Some(col_fp)) = (row_el, col_el) {
-                if (row_fp.hash == col_fp.hash) {
+                if row_fp.hash == col_fp.hash {
                     // write top-left diagonal + 1 to this cell
                     let diag = table[r - 1][c - 1];
                     table[r].push(diag + 1);
@@ -177,8 +177,8 @@ fn choose_substrs(rows: &FpVec, cols: &FpVec, table: &SubStrTable) -> HashSet<Su
             all_substrs.push(new_substr.clone());       // add copy to substrings vec
             let new_substr_idx = all_substrs.len() - 1; // get index of newly-added substring
             
-            let affected_rows = (r..(r + new_substr.size));
-            let affected_cols = (c..(c + new_substr.size));
+            let affected_rows = r..(r + new_substr.size);
+            let affected_cols = c..(c + new_substr.size);
 
             // update affected rows/cols to include a ref to this substring
             for row_idx in affected_rows {

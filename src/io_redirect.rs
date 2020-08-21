@@ -92,11 +92,13 @@ mod tests {
     use std::fs;
 
     // flush stdout so that print statements will go through
+    #[allow(dead_code)]
     fn flush_stdout() {
         std::io::stdout().flush().unwrap();
     }
 
     // assert that a file's contents are the given string
+    #[allow(dead_code)]
     fn expect_file_contents(file: &Path, conts: String) {
         // read file
         let contents = fs::read_to_string(file)

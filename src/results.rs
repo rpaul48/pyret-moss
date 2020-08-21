@@ -5,6 +5,8 @@ use std::path::{Path, PathBuf, Component};
 use crate::cli::SubFileMode;
 use crate::phase_ii::SubPair;
 use crate::io_redirect;
+use crate::phase_iii::{self, Entry, Match};
+use std::collections::HashSet;
 use prettytable::Table;
 
 // number of results to display before prompting the user to continue
@@ -67,7 +69,11 @@ pub fn render_results(sub_pairs: Vec<SubPair>, mode: &SubFileMode,
             &sub_b_name, 
             pair.matches.len(),
             pair.percentile);
-        pair_table(pair, (&sub_a_name, &sub_b_name), mode).printstd();
+
+        // analyze common substrings of fingerprints to get a vector of matches
+        let matches = phase_iii::analyze_pair(pair);
+        
+        pair_table(pair, (&sub_a_name, &sub_b_name), matches, mode).printstd();
     }
 }
 
@@ -110,7 +116,7 @@ mod format {
     }
 
     // print a message indicating how many submission pairs will be rendered
-    pub fn num_pairs_rendering(redir: bool, thresh: f64, total: usize, total_render: usize) {
+    pub fn num_pairs_rendering(_redir: bool, thresh: f64, total: usize, total_render: usize) {
         if thresh > 0.0 {
             println!("Rendering pairs at least {}% of max matches: {} kept out of {} total", 
                 thresh * 100.0, total_render, total);
@@ -135,7 +141,7 @@ mod format {
     }
 
     // print a message indicating how many pairs have been rendered so far
-    pub fn pair_progress(redirecting: bool, so_far: usize, total: usize) {
+    pub fn pair_progress(_redir: bool, so_far: usize, total: usize) {
         let message = format!("Pausing at {} / {} pairs rendered.", so_far, total);
 
         let formatted = RGB(255, 255, 77).bold().paint(message);
@@ -185,133 +191,69 @@ fn sub_name(sub: &Sub, mode: &SubFileMode) -> String {
 }
 
 // Generate a table summarizing fingerprint matches for a given pair of submissions
-fn pair_table(pair: &SubPair, names: (&String, &String), mode: &SubFileMode) -> Table {
-    let mut t = Table::new();
+fn pair_table(pair: &SubPair, names: (&String, &String), matches: Vec<Match>, mode: &SubFileMode) -> Table {
+    let mut table = Table::new();
 
     let (a_name, b_name) = names;
     let a_title = format!("{} ({:.2}%)", a_name, pair.a_percent * 100.0);
     let b_title = format!("{} ({:.2}%)", b_name, pair.b_percent * 100.0);
 
     // add title row: submission names & their content match percentages
-    t.add_row(row!["", Fcbic->a_title, Fcbic->b_title]);
+    table.add_row(row!["(size)", Fcbic->a_title, Fcbic->b_title]);
 
-    let mut match_n = 1;    // match number (for leftmost column)
+    // add each match to table
+    for m in matches.iter() {
+        // generate text for sub A & B cells
+        let a_cell = format_entries(&m.a_entries, pair.a, mode);
+        let b_cell = format_entries(&m.b_entries, pair.b, mode);
 
-    // order hashes for predictability
-    let mut ordered_hashes: Vec<i64> = pair.matches.iter().cloned().collect();
-    ordered_hashes.sort();
-
-    // for each shared hash
-    for hash in ordered_hashes.iter() {
-        // extract file/line number info for fingerprints with 
-        // this hash in each submission
-        let a_entry = format_line_numbers(&pair.a, *hash, mode).join("\n");
-        let b_entry = format_line_numbers(&pair.b, *hash, mode).join("\n");
-
-        // add a row for this match
-        t.add_row(row![bc->match_n, a_entry, b_entry]);
-
-        match_n += 1;
+        // add row with match size & entries from each submission
+        table.add_row(row![bc->m.size, a_cell, b_cell]);
     }
 
-    return t;   // constructed table for this pair
+    table   // constructed table for this pair
 }
 
-// Generate a vector of strings describing the lines (/files if multi-file
-// submission) on which the indicated fingerprint occurs
-fn format_line_numbers(sub: &Sub, hash: i64, mode: &SubFileMode) -> Vec<String> {
-    let mut formatted = Vec::new();
+// Generate a string describing the given entries, for a single cell of a sub pair table
+fn format_entries(entries: &HashSet<Entry>, sub: &Sub, mode: &SubFileMode) -> String {
+    let mut entries: Vec<_> = entries.into_iter().collect();
 
-    for doc in sub.documents.iter() {
-        if let Doc::Processed(path, fps) = doc {
-            let mut doc_line = String::new();
+    // first sort by line range beginnings, then sort by 
+    // document index to group docs together for readability
+    entries.sort_by(|a, b| a.lines.0.cmp(&b.lines.0));
+    entries.sort_by(|a, b| a.doc_idx.cmp(&b.doc_idx));
 
-            // write doc filename to doc line in multi-file mode
-            if let SubFileMode::Multi = mode {
+    let mut entry_text = Vec::new();
+
+    for entry in entries.iter() {
+        let mut entry_line = String::new();
+
+        // if multi-file mode
+        if let SubFileMode::Multi = mode {
+            let doc = &sub.documents[entry.doc_idx];
+
+            // write document filename to line
+            if let Doc::Processed(path, _) = doc {
                 let fname = path.file_name().unwrap().to_str().unwrap();
-                doc_line.push_str(&format!("{} ", fname));
-            }
-
-            let matched_lines = get_lines(doc, hash);   // get line ranges associated with this hash
-            if matched_lines.is_empty() { continue; }   // skip if nothing to write
-
-            // depending on number of lines found, write 'lines' or 'line'
-            let (start, end) = matched_lines[0];
-            if matched_lines.len() > 1 || (end - start > 0) {
-                doc_line.push_str("lines ");
+                entry_line.push_str(&format!("{} ", fname));
             } else {
-                doc_line.push_str("line ");
+                panic!("invalid document encountered while formatting output: {:?}", doc);
             }
+        }
 
-            let len = matched_lines.len();  // cache number of matched lines
+        let (start, end) = entry.lines;
 
-            // for each line range
-            for (i, range) in matched_lines.iter().enumerate() {
-                let suffix = if i < len - 1 { ", " } else { "" };  // commas delimit ranges
-                let (st, en) = range;
-
-                // add either single line or line range
-                if en - st == 0 {
-                    doc_line.push_str(&format!("{}{}", st, suffix));
-                } else {
-                    doc_line.push_str(&format!("{}-{}{}", st, en, suffix));
-                }
-            }
-
-            // add this document's formatted line info to the vec
-            formatted.push(doc_line);
-
+        // write line numbers
+        if end - start > 0 {
+            entry_line.push_str(&format!("lines {}-{}", start, end));
         } else {
-            panic!("unprocessed document encountered in format_line_numbers: {:?}", doc);
-        }
-    }
-
-    formatted
-}
-
-// Construct a list of line ranges of all fingerprints in this doc 
-// that have the given hash, combining overlapping/consecutive ranges
-fn get_lines(doc: &Doc, hash: i64) -> Vec<(i32, i32)> {
-    // Insert a line range into a vector of line ranges, ensuring that
-    // overlapping/consecutive ranges are coalesced into one 
-    // (eg (1,4) & (3,5) -> (1,5) and (2,5) & (6,10) -> (2,10))
-    // (assumes inserting into an *already coalesced* vector)
-    fn coalesce_insert(lines: &mut Vec<(i32, i32)>, new: (i32, i32)) {
-        // if empty, nothing to coalesce
-        if lines.is_empty() {
-            lines.push(new);
-        } else {
-            // check last el for need to coalesce
-            let lst = lines.pop().unwrap();
-            let (lst_start, lst_end) = lst;
-            let (new_start, new_end) = new;
-
-            // if new range overlaps or begins immediately after the
-            // end of the last range, coalesce
-            if new_start <= lst_end + 1 {
-                lines.push((lst_start, new_end));
-            } else {
-                lines.push(lst);
-                lines.push(new);
-            }
-        }
-    }
-
-    // extract document path/fingerprints
-    if let Doc::Processed(path, fps) = doc {
-        let mut lines = Vec::new();
-
-        // add line ranges for fingerprints that match the given hash
-        for fp in fps.iter() {
-            if fp.hash == hash {
-                coalesce_insert(&mut lines, fp.lines);
-            }
+            entry_line.push_str(&format!("line {}", start));
         }
 
-        return lines;
-    } else {
-        panic!("unprocessed Doc encountered in get_lines: {:?}", doc);
+        entry_text.push(entry_line);
     }
+
+    entry_text.join("\n")
 }
 
 
@@ -390,6 +332,11 @@ mod tests {
         }
     }
 
+    // turn a vector into a hashset (convenience)
+    fn set<T: Clone+Eq+std::hash::Hash>(elts: Vec<T>) -> HashSet<T> {
+        elts.iter().cloned().collect()
+    }
+
     #[test]
     fn test_pair_table() {
         {
@@ -441,14 +388,54 @@ mod tests {
             let a_name = String::from("sub1/");
             let b_name = String::from("sub2/");
 
+            let matches = vec![
+                // [17]
+                Match {
+                    size: 1,
+                    a_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (1, 3) },
+                        Entry { doc_idx: 0, lines: (6, 10) },
+                        Entry { doc_idx: 1, lines: (44, 57) },
+                    ]),
+                    b_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (8, 12) }
+                    ])
+                },
+                // [20]
+                Match {
+                    size: 1,
+                    a_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (5, 5) },
+                        Entry { doc_idx: 1, lines: (25, 30) },
+                    ]),
+                    b_entries: set(vec![
+                        Entry { doc_idx: 1, lines: (8, 10) }
+                    ])
+                },
+                // [11]
+                Match {
+                    size: 1,
+                    a_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (10, 11) },
+                        Entry { doc_idx: 0, lines: (12, 15) },
+                    ]),
+                    b_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (5, 5) },
+                        Entry { doc_idx: 0, lines: (17, 30) }
+                    ])
+                }
+            ];
+
             let exp_table = table!(
-                ["", Fcbic->"sub1/ (45.00%)", Fcbic->"sub2/ (78.00%)"],
-                [bc->"1", "doc1.arr lines 10-15", "doc1.arr lines 5, 17-30"],   // fp 11
-                [bc->"2", "doc1.arr lines 1-3, 6-10\ndoc2.arr lines 44-57", "doc1.arr lines 8-12"], // fp 17
-                [bc->"3", "doc1.arr line 5\ndoc2.arr lines 25-30", "doc2.arr lines 8-10"] // fp 20
+                ["(size)", Fcbic->"sub1/ (45.00%)", Fcbic->"sub2/ (78.00%)"],
+                [bc->"1", "doc1.arr lines 1-3\ndoc1.arr lines 6-10\ndoc2.arr lines 44-57", "doc1.arr lines 8-12"],   // fp 17
+                [bc->"1", "doc1.arr line 5\ndoc2.arr lines 25-30", "doc2.arr lines 8-10"], // fp 20
+                [bc->"1", "doc1.arr lines 10-11\ndoc1.arr lines 12-15", "doc1.arr line 5\ndoc1.arr lines 17-30"] // fp 11
             );
 
-            assert_eq!(pair_table(&sp, (&a_name, &b_name), &SubFileMode::Multi), exp_table);
+            let out = pair_table(&sp, (&a_name, &b_name), matches, &SubFileMode::Multi);
+
+            assert_eq!(out, exp_table);
         }
         {
             let a = Sub {
@@ -490,114 +477,106 @@ mod tests {
             let a_name = String::from("sub1.arr");
             let b_name = String::from("sub2.arr");
 
+            let matches = vec![
+                // [28, 28, 17]
+                Match {
+                    size: 3,
+                    a_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (16, 31) }
+                    ]),
+                    b_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (17, 31) }
+                    ])
+                },
+                // [28. 28]
+                Match {
+                    size: 2,
+                    a_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (11, 19) }
+                    ]),
+                    b_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (17, 29) }
+                    ])
+                },
+                // [28]
+                Match {
+                    size: 1,
+                    a_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (4, 5) }
+                    ]),
+                    b_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (17, 17) }
+                    ])
+                },
+                // [12]
+                Match {
+                    size: 1,
+                    a_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (5, 5) }
+                    ]),
+                    b_entries: set(vec![
+                        Entry { doc_idx: 0, lines: (38, 42) }
+                    ])
+                }
+            ];
+
             let exp_table = table!(
-                ["", Fcbic->"sub1.arr (22.00%)", Fcbic->"sub2.arr (31.00%)"],
-                [bc->"1", "line 5", "lines 38-42"],   // fp 12
-                [bc->"2", "lines 30-31", "lines 30-31"], // fp 17
-                [bc->"3", "lines 4-5, 11-22", "lines 17-29"] // fp 28
+                ["(size)", Fcbic->"sub1.arr (22.00%)", Fcbic->"sub2.arr (31.00%)"],
+                [bc->"3", "lines 16-31", "lines 17-31"],   // [28, 28, 17]
+                [bc->"2", "lines 11-19", "lines 17-29"], // [28, 28]
+                [bc->"1", "lines 4-5", "line 17"], // [28]
+                [bc->"1", "line 5", "lines 38-42"] // [12]
             );
 
-            assert_eq!(pair_table(&sp, (&a_name, &b_name), &SubFileMode::Single), exp_table);
+            let out = pair_table(&sp, (&a_name, &b_name), matches, &SubFileMode::Single);
+
+            assert_eq!(out, exp_table);
         }
     }
 
     #[test]
-    fn test_format_line_numbers() {
+    fn test_format_entries() {
         {
+            let entries = set(vec![
+                Entry { doc_idx: 2, lines: (15, 18) },
+                Entry { doc_idx: 0, lines: (1, 4) },
+                Entry { doc_idx: 2, lines: (2, 8) },
+                Entry { doc_idx: 1, lines: (3, 20) }
+            ]);
+
             let sub = Sub {
-                dir_name: Some(PathBuf::from("sub1/")),
+                dir_name: Some(PathBuf::from("~/submissions/sub/")),
                 documents: vec![
-                    Doc::Processed(PathBuf::from("sub1/d1.arr"), vec![
-                        Fingerprint { hash: 1, lines: (2, 2) },
-                        Fingerprint { hash: 2, lines: (10, 10) },
-                        Fingerprint { hash: 3, lines: (14, 20) },
-                        Fingerprint { hash: 1, lines: (27, 29) }
-                    ]),
-                    Doc::Processed(PathBuf::from("sub1/d2.arr"), vec![
-                        Fingerprint { hash: 2, lines: (3, 3) },
-                        Fingerprint { hash: 2, lines: (7, 7) },
-                        Fingerprint { hash: 7, lines: (8, 104) },
-                        Fingerprint { hash: 1, lines: (155, 171) }
-                    ])
+                    Doc::Processed(PathBuf::from("~/submissions/sub/one.arr"), Vec::new()),
+                    Doc::Processed(PathBuf::from("~/submissions/sub/two.arr"), Vec::new()),
+                    Doc::Processed(PathBuf::from("~/submissions/sub/three.arr"), Vec::new())
                 ]
             };
 
-            let mode = SubFileMode::Multi;
+            let exp_cell = String::from("one.arr lines 1-4\ntwo.arr lines 3-20\nthree.arr lines 2-8\nthree.arr lines 15-18");
 
-            assert_eq!(format_line_numbers(&sub, 1, &mode), vec![
-                "d1.arr lines 2, 27-29".to_string(),
-                "d2.arr lines 155-171".to_string()
-            ]);
-            assert_eq!(format_line_numbers(&sub, 2, &mode), vec![
-                "d1.arr line 10".to_string(),
-                "d2.arr lines 3, 7".to_string()
-            ]);
-            assert_eq!(format_line_numbers(&sub, 3, &mode), vec![
-                "d1.arr lines 14-20".to_string(),
-            ]);
-            assert_eq!(format_line_numbers(&sub, 7, &mode), vec![
-                "d2.arr lines 8-104".to_string()
-            ]);
+            assert_eq!(format_entries(&entries, &sub, &SubFileMode::Multi), exp_cell);
         }
         {
+            let entries = set(vec![
+                Entry { doc_idx: 3, lines: (2, 5) },
+                Entry { doc_idx: 0, lines: (1, 5) },
+                Entry { doc_idx: 0, lines: (4, 8) }
+            ]);
+    
             let sub = Sub {
-                dir_name: None,
+                dir_name: Some(PathBuf::from("dir/abcd/")),
                 documents: vec![
-                    Doc::Processed(PathBuf::from("submission6.arr"), vec![
-                        Fingerprint { hash: 17, lines: (1, 7) },
-                        Fingerprint { hash: 39, lines: (11, 11) },
-                        Fingerprint { hash: 88, lines: (14, 14) },
-                        Fingerprint { hash: 17, lines: (30, 35) },
-                        Fingerprint { hash: 39, lines: (28, 34) },
-                        Fingerprint { hash: 39, lines: (31, 37) }
-                    ])
+                    Doc::Processed(PathBuf::from("dir/abcd/first.arr"), Vec::new()),
+                    Doc::Processed(PathBuf::from("dir/abcd/second.arr"), Vec::new()),
+                    Doc::Processed(PathBuf::from("dir/abcd/third.arr"), Vec::new()),
+                    Doc::Processed(PathBuf::from("dir/abcd/fourth.arr"), Vec::new())
                 ]
             };
-
-            let mode = SubFileMode::Single;
-
-            // no filenames
-            assert_eq!(format_line_numbers(&sub, 17, &mode), vec![
-                "lines 1-7, 30-35".to_string()
-            ]);
-            assert_eq!(format_line_numbers(&sub, 39, &mode), vec![
-                "lines 11, 28-37".to_string()   // overlapping lines are coalesced
-            ]);
-            assert_eq!(format_line_numbers(&sub, 88, &mode), vec![
-                "line 14".to_string()
-            ]);
-        }
-    }
-
-    #[test]
-    fn test_get_lines() {
-        {
-            let doc = Doc::Processed(PathBuf::from("sub/docname.arr"), vec![
-                Fingerprint { hash: 1, lines: (1, 7) },
-                Fingerprint { hash: 41, lines: (10, 10) },
-                Fingerprint { hash: 3, lines: (15, 21) },
-                Fingerprint { hash: 1, lines: (21, 25) },
-                Fingerprint { hash: 1, lines: (23, 31) },
-                Fingerprint { hash: 18, lines: (40, 44) }
-            ]);
-
-            assert_eq!(get_lines(&doc, 1), vec![(1, 7), (21, 31)]);
-            assert_eq!(get_lines(&doc, 41), vec![(10, 10)]);
-            assert_eq!(get_lines(&doc, 18), vec![(40, 44)]);
-        }
-        {
-            let doc = Doc::Processed(PathBuf::from("submission/doc.arr"), vec![
-                Fingerprint { hash: 67, lines: (3, 3) },
-                Fingerprint { hash: 200, lines: (11, 17) },
-                Fingerprint { hash: 11, lines: (21, 21) },
-                Fingerprint { hash: 11, lines: (21, 26) },
-                Fingerprint { hash: 11, lines: (27, 30) },
-                Fingerprint { hash: 67, lines: (40, 44) }
-            ]);
-
-            assert_eq!(get_lines(&doc, 67), vec![(3, 3), (40, 44)]);
-            assert_eq!(get_lines(&doc, 11), vec![(21, 30)]);
-            assert_eq!(get_lines(&doc, 200), vec![(11, 17)]);
+    
+            let exp_cell = String::from("first.arr lines 1-5\nfirst.arr lines 4-8\nfourth.arr lines 2-5");
+    
+            assert_eq!(format_entries(&entries, &sub, &SubFileMode::Multi), exp_cell);
         }
     }
 }
