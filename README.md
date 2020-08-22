@@ -4,21 +4,25 @@ Pyret Moss is a command line application for determining the similarity of progr
 Please note that while the primary intended use case for this program is to help detect plagiarism across homework assignment submissions written in Pyret, **proof of plagiarism may not be guaranteed solely from the similarity scores returned in the output**. Instructors should manually check pairs of submissions with high similarity scores before determining the presence of plagiarism. The responsibility of Moss is to present the **relative similarity** between pairs of submissions, leaving the decision of what constitutes plagiarism to the instructor. More information about understanding output can be found in the corresponding section below.
 
 ## How to Build and Run
-To run the program over a folder of submissions, you may run a command of the following form from the root directory:
+### Building for Development
+If you'd like to work on `pyret-moss` for yourself, you can clone this repository and compile/run using `cargo run` from the root directory of the project. Command-line arguments can be passed after a `--` (so they won't be passed to cargo itself), e.g. `cargo run -- --help`.
 
-`cargo run <SUBMISSIONS-DIR> [OPTIONS]`
+You can run the test suite with `cargo test`.
 
-\<SUBMISSIONS-DIR> indicates the local path to a directory containing submissions. The command may be customized with the following flags (in any order) in place of [OPTIONS]:
+### Building for Production
+To build the project for use in a production setting, run `cargo build --release`. You can now run the compiled binary using `./target/release/pyret-moss` from the project directory.
 
-- `--help` prints help information
-- `--single-file-subs` indicates that \<SUBMISSIONS-DIR> contains .arr files where each file is an individual submission
-- `-k <VALUE>` sets the noise threshold, k
-- `-t <VALUE>` sets the guarantee threshold, t
-- `--ignore <DIR>` indicates submission matches with .arr files in DIR should be ignored
-- `--match-threshold <VALUE>` only report submission pairs whose match percentage is at least VALUE (0-100)
-- `-o <FILE>` writes the output to a file at path represented by FILE instead of stdout
-- `--verbose` more logging
-- `--no-pauses` don't pause for confirmation to continue when rendering results
+#### Adding to Path
+If you'd like to be able to access the Pyret Moss executable from anywhere on your system, you can add it to a directory that is part of your $PATH. Here is an example (for Unix systems) using the `~/.local/bin` directory: 
+
+1. Copy the executable to `~/.local/bin` by running `cp ./target/release/pyret-moss ~/.local/bin/pyret-moss` from the project root.
+2. Add `~/.local/bin` to your $PATH:
+    - `nano ~/.bashrc`. This should open your `.bashrc` for editing. 
+    - At the bottom of `~/.bashrc`, add `export PATH=${HOME}/.local/bin:$PATH`
+3. Restart your terminal, and the `pyret-moss` command should be accessible from anywhere.
+
+### Running
+- [explain cli args]
 
 Please see the sections below for information on k, t, matching, and understanding output. Unless indicated otherwise through the flags, the program will run with the following **default configuration**:
 
