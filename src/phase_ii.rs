@@ -45,7 +45,7 @@ pub fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, thres
     }
 
     if verbose {
-        println!("\nPairing submissions with overlap (threshold: {:2}%)", threshold * 100.0);
+        println!("\nPairing submissions with overlap (threshold: {:.2}%)", threshold * 100.0);
     }
 
     // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes

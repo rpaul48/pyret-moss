@@ -96,7 +96,7 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
 
             if verbose { 
                 let fp_count = fps.len();
-                println!("\t\tanalyzing {}: {} fingerprints ({} ignored)", 
+                println!("\t\t{}: {} fingerprints ({} ignored)", 
                     doc_path.file_name().unwrap().to_str().unwrap(),
                     fp_count,
                     orig_amount_fps - fp_count);

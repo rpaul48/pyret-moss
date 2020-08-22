@@ -44,10 +44,8 @@ fn main() {
         None => HashSet::new()
     };
 
-    if opts.verbose {
-        if ignore_files.len() > 0 {
-            println!("Ignoring files: {:?}", ignore_files);
-        }
+    if opts.verbose && ignore_files.len() > 0 {
+        println!("Ignoring files: {:?}", ignore_files);
     }
 
     // if a directory of files to ignore is given, construct a set 
@@ -82,6 +80,6 @@ fn main() {
     let (sub_pairs, total_pairs) = phase_ii::find_overlaps(&hash_to_subs, opts.match_threshold, opts.verbose);
 
     // render a report to the user detailing submission overlap
-    results::render_results(sub_pairs, &opts.sub_mode, opts.out_file, 
+    results::render_results(sub_dir, sub_pairs, &opts.sub_mode, opts.out_file, 
         opts.match_threshold, total_pairs, opts.no_pauses, opts.verbose);
 }

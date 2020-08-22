@@ -14,7 +14,7 @@ const RESULT_BUFFER_SIZE: usize = 1;
 
 // Given a vector of matched submission pairs ordered by amount of overlap, 
 // render a message (to stdout or the given file) summarizing the overlaps
-pub fn render_results(sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>, 
+pub fn render_results(sub_dir: &Path, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>, 
     match_thresh: f64, total_pairs: usize, no_pauses: bool, verbose: bool) {
 
     if verbose { println!("\nRendering results..."); }
@@ -28,6 +28,9 @@ pub fn render_results(sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Opt
         },
         None => None,
     };
+
+    // show a header message with the submissions dir path
+    format::results_header(sub_dir);
 
     // if no submission pairs were found in Phase II, exit
     if sub_pairs.is_empty() {
@@ -85,6 +88,7 @@ pub fn render_results(sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Opt
 // Wrappers for printing messages in result rendering, because 
 // formatting can complicate things
 mod format {
+    use std::path::{Path, PathBuf};
     use ansi_term::Colour::{RGB, White};
     use ansi_term::Style;
 
@@ -98,6 +102,19 @@ mod format {
                 Style::default().paint($s)
             }
         }
+    }
+
+    // print header for the results, containing the submission directory for later reference
+    pub fn results_header(sub_dir: &Path) {
+        // convert submission dir path to absolute path
+        let sub_dir = if let Ok(full_path) = std::fs::canonicalize(sub_dir) {
+            full_path
+        } else {
+            PathBuf::from(sub_dir)
+        };
+
+        println!("\nPyret Moss Results");
+        println!("Submissions Directory: {}", sub_dir.display());
     }
 
     // print a message indicating that no overlap between submission was found
@@ -123,7 +140,7 @@ mod format {
     // print a message indicating how many submission pairs will be rendered
     pub fn num_pairs_rendering(_redir: bool, thresh: f64, total: usize, total_render: usize) {
         if thresh > 0.0 {
-            println!("Rendering pairs at least {}% of max matches: {} kept out of {} total", 
+            println!("Rendering pairs at least {:.2}% of max matches: {} kept / {} total", 
                 thresh * 100.0, total_render, total);
         } else {
             println!("Rendering all submission pairs ({} total)", total_render);

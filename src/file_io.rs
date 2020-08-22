@@ -62,7 +62,7 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode,
     }
 
     if verbose {
-        println!("\nEntering submissions directory: {} ...", sub_dir.display());
+        println!("\nEntering submissions directory... ({})", sub_dir.display());
     }
 
     match sub_mode {
@@ -106,10 +106,10 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode,
                 for file in files.iter() {
                     let fname = file.file_name().unwrap().to_str().unwrap();
 
-                    if verbose { println!("\t\tadding document {}", fname); }
-
                     // don't include files that are ignored (by filename)
                     if !ignore_files.contains(fname) {
+                        if verbose { println!("\t\tadding document {}", fname); }
+
                         docs.push(Doc::Unprocessed(file.to_path_buf()));
                     }
                 }
