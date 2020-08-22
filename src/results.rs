@@ -113,8 +113,7 @@ mod format {
             PathBuf::from(sub_dir)
         };
 
-        println!("\nPyret Moss Results");
-        println!("Submissions Directory: {}", sub_dir.display());
+        println!("\nSubmissions Directory: {}", sub_dir.display());
     }
 
     // print a message indicating that no overlap between submission was found

@@ -55,7 +55,15 @@ pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> HashSet<i64> {
 // a hashmap from fingerprint hashes to the set of subs that share that hash
 pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i64>>,
     k: i32, t: i32, verbose: bool) -> FnvHashMap<i64, HashSet<&'a Sub>> {
-    if verbose { println!("\nAnalyzing all submission content..."); }
+    if verbose { 
+        println!("\nAnalyzing all submission content...");
+        println!("noise threshold = {} chars", k);
+        println!("guarantee threshold = {} chars", t);
+
+        if let Some(ref set) = ignore {
+            println!("ignoring {} fingerprints", set.len());
+        }
+    }
 
     let mut fp_to_subs = FnvHashMap::default();
 

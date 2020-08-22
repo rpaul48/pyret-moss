@@ -78,27 +78,33 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
     while let Some(arg) = iter.next() {
         let arg = arg.as_str();
         match arg {
-            "--help" => print_help(&args[0]),
-            "--single-file-subs" => options.sub_mode = SubFileMode::Single,
-            "-k" => {
+            "--help" | "-h" => print_help(&args[0]),
+            "--single-file-mode" | "-s" => options.sub_mode = SubFileMode::Single,
+            "--noise" | "-k" => {
                 let k_str = unwrap_next(arg, iter.next());
 
+                // only accept integer k > 0
                 if let Ok(k) = k_str.parse::<i32>() {
-                    options.k = k;
-                } else {
-                    err!("invalid value for k: `{}`", k_str);
+                    if k > 0 {
+                        options.k = k;
+                        continue;
+                    }
                 }
+                err!("invalid value for noise threshold (k): `{}`", k_str);
             },
-            "-t" => {
+            "--guarantee" | "-t" => {
                 let t_str = unwrap_next(arg, iter.next());
 
+                // only accept integer t > 0
                 if let Ok(t) = t_str.parse::<i32>() {
-                    options.t = t;
-                } else {
-                    err!("invalid value for t: `{}`", t_str);
+                    if t > 0 {
+                        options.t = t;
+                        continue;
+                    }
                 }
+                err!("invalid value for guarantee threshold (t): `{}`", t_str);
             },
-            "-o" => {
+            "--output" | "-o" => {
                 let out_file = unwrap_next(arg, iter.next());
                 options.out_file = Some(&Path::new(out_file));
             },
@@ -135,8 +141,8 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
                     err!("invalid value for --match-threshold: `{}`", thresh_str);
                 }
             },
-            "--verbose" => options.verbose = true,
-            "--no-pauses" => options.no_pauses = true,
+            "--verbose" | "-v" => options.verbose = true,
+            "--no-pauses" | "-p" => options.no_pauses = true,
             _ => {
                 // check for unrecognized flags
                 if arg.starts_with('-') {
@@ -152,24 +158,28 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
         };
     }
 
-    // Check a predicate on a value, and give an informative 
-    // error message in the case of failure
-    fn validate<F, T>(flag: &str, value: &T, valid: F, reminder: &str) 
+    // Check a predicate on a value, and give an informative error message 
+    // in the case of failure. Call display() on value to prep it for printing
+    fn validate<F, T, D>(flag: &str, value: &T, valid: F, display: D, reminder: &str) 
         where 
             F: Fn(&T) -> bool,
-            T: std::fmt::Display {
+            T: std::fmt::Display,
+            D: Fn(&T) -> T {
         if !valid(value) {
-            err!("invalid value for {}: `{}` (remember: {})", flag, value, reminder);
+            err!("invalid value for {}: `{}` (remember: {})", flag, display(value), reminder);
         }
     }
 
     // validate both k & t: must be positive and 0 < k <= t
     let kt_remind = "0 < k <= t";
-    validate("k", &options.k, |&k| k > 0 && k <= options.t, kt_remind);
-    validate("t", &options.t, |&t| t > 0 && t >= options.k, kt_remind);
+    validate("noise threshold (k)", &options.k, |&k| k > 0 && k <= options.t, 
+        |&k| k, kt_remind);
+    validate("guarantee threshold (t)", &options.t, |&t| t > 0 && t >= options.k, 
+        |&t| t, kt_remind);
 
     // validate match threshold
-    validate("--match-threshold", &options.match_threshold, |&t| t >= 0.0 && t <= 1.0, "must be a percentage value (0-100)");
+    validate("--match-threshold", &options.match_threshold, |&t| t >= 0.0 && t <= 1.0, 
+        |&m| m * 100.0, "must be a percentage value (0-100)");
 
     if let Some(dir) = sub_dir {
         // return the submissions directory & updated options
@@ -188,23 +198,31 @@ fn print_help(exec: &String) {
     println!(r#"
 Copy-detection for Pyret
 
-USAGE:
-  {} <SUBMISSIONS-DIR> [OPTIONS]
+Usage:
+    {} <SUBMISSIONS-DIR> [OPTIONS]
 
-SUBMISSIONS-DIR indicates a directory containing submissions (either individual .arr
-files or subdirectories of .arr files)
+SUBMISSIONS-DIR indicates a directory containing submissions.
+
+Submissions can be either 
+    1) individual .arr files (single-file mode)
+    2) subdirectories of .arr files (multi-file mode (default))
 
 OPTIONS:
-  --help                              Prints this help information
-  --single-file-subs                  Indicates that submissions will be treated as single .arr files
-  -k <VALUE>                          Sets the noise threshold, k
-  -t <VALUE>                          Sets the guarantee threshold, t
-  --ignore-content <DIR>              Portions of submissions that match the content of the files in <DIR> will be ignored
-  --ignore-files "<FILE>{{ <FILE>}}"    Indicates a set of filenames to ignore from every submission
-  --match-threshold <VALUE>           Only report submission pairs whose match percentage is at least VALUE (0-100)
-  -o <FILE>                           Writes the analysis to FILE instead of stdout
-  --verbose                           More logging
-  --no-pauses                         Don't pause for confirmation to continue when rendering results"#, 
+    -h, --help                              Prints this help information
+    -s, --single-file-mode                  Submissions are assumed to be single .arr files
+    -k, --noise <VALUE>                     Sets the noise threshold
+    -t, --guarantee <VALUE>                 Sets the guarantee threshold
+        --ignore-content <DIR>              Ignore portions of submissions that match any file's content in DIR
+        --ignore-files "<FILE>[ <FILE>]"    Ignore submission files with the given names
+        --match-threshold <VALUE>           Only report submission pairs with match percentage at least VALUE (0-100)
+    -o, --output <FILE>                     Write analysis to FILE instead of stdout
+    -v, --verbose                           More logging
+    -p, --no-pauses                         Don't pause for confirmation to continue when rendering results
+
+Note: abbreviated flags cannot be combined
+
+For more detailed info see https://github.com/rpaul48/pyret-moss
+"#, 
     exec);
 
     std::process::exit(0);
@@ -286,7 +304,7 @@ mod tests {
                 "20",
                 "-t",
                 "25",
-                "--single-file-subs",
+                "--single-file-mode",
                 "--ignore-content",
                 "./boilerplate",
                 "--no-pauses"

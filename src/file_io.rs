@@ -62,7 +62,15 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode,
     }
 
     if verbose {
-        println!("\nEntering submissions directory... ({})", sub_dir.display());
+        match sub_mode {
+            SubFileMode::Single => {
+                println!("\nSubmission mode: single .arr files");
+            },
+            SubFileMode::Multi => {
+                println!("\nSubmission mode: subdirectories of .arr files");
+            }
+        };
+        println!("Entering submissions directory... ({})", sub_dir.display());
     }
 
     match sub_mode {
@@ -71,7 +79,7 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode,
             let sub_files = arr_files_in_dir(sub_dir);
 
             if sub_files.len() == 0 {
-                err!("submission directory `{}` contains no .arr files", sub_dir.display());
+                err!("submission directory `{}` contains no .arr files (omit -s for multi-file mode)", sub_dir.display());
             }
 
             // for each submission (.arr file)
@@ -91,7 +99,7 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode,
             let sub_dirs = dirs_in_dir(sub_dir);
 
             if sub_dirs.len() == 0 {
-                err!("submission directory `{}` contains no subdirectories", sub_dir.display());
+                err!("submission directory `{}` contains no subdirectories (use -s for single-file mode)", sub_dir.display());
             }
 
             // for each submission (subdirectory)
