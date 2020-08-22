@@ -112,7 +112,15 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
 
                 // add each filename to the set
                 for file_name in arg_string.split(" ") {
+                    if file_name.is_empty() {
+                        err!("invalid argument to --ignore-files: `{}`", arg_string);
+                    }
+
                     ignore_files.insert(String::from(file_name));
+                }
+
+                if ignore_files.len() == 0 {
+                    err!("--ignore-files expected at least 1 filename to ignore");
                 }
 
                 options.ignore_files = Some(ignore_files);

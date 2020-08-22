@@ -53,11 +53,16 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
 
 // Build a vector of submissions by traversing the given directory 
 // in a manner specified by the sub_mode
-pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode, ignore_files: &HashSet<String>) -> Vec<Sub> {
+pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode, 
+    ignore_files: &HashSet<String>, verbose: bool) -> Vec<Sub> {
     let mut subs = Vec::new();
 
     if !sub_dir.is_dir() {  // validate submission directory
         err!("submission directory `{}` is not a dir", sub_dir.display());
+    }
+
+    if verbose {
+        println!("\nEntering submissions directory: {} ...", sub_dir.display());
     }
 
     match sub_mode {
@@ -71,6 +76,8 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode, ignore_files: &Has
 
             // for each submission (.arr file)
             for file in sub_files.iter() {
+                if verbose { println!("\tcreating submission {}", file.display()); }
+
                 let doc = Doc::Unprocessed(file.to_path_buf());
 
                 subs.push(Sub {
@@ -89,6 +96,8 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode, ignore_files: &Has
 
             // for each submission (subdirectory)
             for sub in sub_dirs.iter() {
+                if verbose { println!("\tcreating submission {}", sub.display()); }
+
                 // read files for this submission
                 let files = arr_files_in_dir(sub.as_path());
                 let mut docs = Vec::new();
@@ -96,6 +105,8 @@ pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode, ignore_files: &Has
                 // add an unprocessed document for each file in the submission
                 for file in files.iter() {
                     let fname = file.file_name().unwrap().to_str().unwrap();
+
+                    if verbose { println!("\t\tadding document {}", fname); }
 
                     // don't include files that are ignored (by filename)
                     if !ignore_files.contains(fname) {
@@ -236,7 +247,7 @@ mod tests {
         // single-file subs
         {
             let sub_dir = Path::new("./test-dirs/test/single-file");
-            let mut out = construct_subs(sub_dir, &SubFileMode::Single, &HashSet::new());
+            let mut out = construct_subs(sub_dir, &SubFileMode::Single, &HashSet::new(), false);
             let mut exp_subs = vec![
                 mk_sub(None, vec![
                     "./test-dirs/test/single-file/sub1.arr"
@@ -252,7 +263,7 @@ mod tests {
         // multi-file subs
         {
             let sub_dir = Path::new("./test-dirs/test/multi-file");
-            let mut out = construct_subs(sub_dir, &SubFileMode::Multi, &HashSet::new());
+            let mut out = construct_subs(sub_dir, &SubFileMode::Multi, &HashSet::new(), false);
             let mut exp_subs = vec![
                 mk_sub(Some("./test-dirs/test/multi-file/sub1"), vec![
                     "./test-dirs/test/multi-file/sub1/common.arr",
@@ -278,7 +289,7 @@ mod tests {
             let mut ignore_files = HashSet::new();
             ignore_files.insert(String::from("common.arr"));
 
-            let mut out = construct_subs(sub_dir, &SubFileMode::Multi, &ignore_files);
+            let mut out = construct_subs(sub_dir, &SubFileMode::Multi, &ignore_files, false);
             let mut exp_subs = vec![
                 mk_sub(Some("./test-dirs/test/multi-file/sub1"), vec![
                     "./test-dirs/test/multi-file/sub1/main.arr"

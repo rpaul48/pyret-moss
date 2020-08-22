@@ -14,13 +14,18 @@ const RESULT_BUFFER_SIZE: usize = 1;
 
 // Given a vector of matched submission pairs ordered by amount of overlap, 
 // render a message (to stdout or the given file) summarizing the overlaps
-pub fn render_results(sub_pairs: Vec<SubPair>, mode: &SubFileMode, 
-    out_file: Option<&Path>, match_thresh: f64, total_pairs: usize, no_pauses: bool) {
+pub fn render_results(sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>, 
+    match_thresh: f64, total_pairs: usize, no_pauses: bool, verbose: bool) {
+
+    if verbose { println!("\nRendering results..."); }
 
     // if output filepath given, start redirecting stdout to that file
     let redirecting = out_file.is_some();
     let mut redirect = match out_file {
-        Some(p) => Some(io_redirect::initialize_redirect(p)),
+        Some(p) => {
+            if verbose { println!("Redirecting output to {}", p.display()); }
+            Some(io_redirect::initialize_redirect(p))
+        },
         None => None,
     };
 

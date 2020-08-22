@@ -54,12 +54,19 @@ pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> HashSet<i64> {
 // Read/normalize/fingerprint documents in given submissions, constructing
 // a hashmap from fingerprint hashes to the set of subs that share that hash
 pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i64>>,
-    k: i32, t: i32) -> FnvHashMap<i64, HashSet<&'a Sub>> {
+    k: i32, t: i32, verbose: bool) -> FnvHashMap<i64, HashSet<&'a Sub>> {
+    if verbose { println!("\nAnalyzing all submission content..."); }
 
     let mut fp_to_subs = FnvHashMap::default();
 
     // for each submission
     for sub in subs.iter_mut() {
+        if verbose {
+            if let Some(path) = &sub.dir_name {
+                println!("\tprocessing {}", path.display());
+            }
+        }
+
         let mut sub_fps = HashSet::new();
 
         // for each document in this submission
@@ -75,6 +82,8 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
                 Err(e) => { err!("failed to analyze file {}: {}", doc_path.display(), e); }
             };
 
+            let orig_amount_fps = fps.len();    // store original # fingerprints before ignore
+
             // filter out ignored fingerprints, if any
             let fps = match ignore {
                 Some(ref set) => {
@@ -84,6 +93,14 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
                 },
                 None => fps,
             };
+
+            if verbose { 
+                let fp_count = fps.len();
+                println!("\t\tanalyzing {}: {} fingerprints ({} ignored)", 
+                    doc_path.file_name().unwrap().to_str().unwrap(),
+                    fp_count,
+                    orig_amount_fps - fp_count);
+            }
 
             // add included fingerprints for this doc to the set for this submission
             for fp in fps.iter() { sub_fps.insert(fp.clone()); }
@@ -210,7 +227,7 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let out = analyze_subs(&mut submissions, None, 10, 60);
+        let out = analyze_subs(&mut submissions, None, 10, 60, false);
 
         // submissions after analysis
         let proc_sub1 = Sub {
@@ -271,7 +288,7 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let out = analyze_subs(&mut submissions, None, 5, 15);
+        let out = analyze_subs(&mut submissions, None, 5, 15, false);
 
         // submissions after analysis
         let proc_sub1 = Sub {
@@ -372,7 +389,7 @@ mod tests {
         ].iter().cloned().collect();
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let out = analyze_subs(&mut submissions, Some(ignore_set), 5, 15);
+        let out = analyze_subs(&mut submissions, Some(ignore_set), 5, 15, false);
 
         // submissions after analysis
         let proc_sub1 = Sub {

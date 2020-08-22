@@ -36,12 +36,16 @@ impl Eq for SubPair<'_> {}
 // a Pair and a 'percentile' value for each SubPair, keep pairs with percentile
 // greater than input threshold, order pairs by the quantity shared and return in tuple
 // along with number of total subpairs found
-pub fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64)
-    -> (Vec<SubPair<'a>>, usize) {
+pub fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64, 
+    verbose: bool) -> (Vec<SubPair<'a>>, usize) {
 
     // ensure 0 <= threshold <= 1
     if (threshold < 0.0) || (threshold > 1.0) {
         err!("The input percentile threshold must be between 0 and 1 inclusive.");
+    }
+
+    if verbose {
+        println!("\nPairing submissions with overlap (threshold: {:2}%)", threshold * 100.0);
     }
 
     // a map whose keys are pairs (sets of size 2) of subs and whose values are sets of hashes
@@ -167,6 +171,8 @@ pub fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, thres
     // sort the pair_hash_tuples vec by descending percentile (same as sort by num of matches)
     subpairs.sort_by(|a, b| b.percentile.partial_cmp(&a.percentile).unwrap());
 
+    if verbose { println!("{} pairs identified.", subpairs.len()); }
+
     // return the populated, sorted output
     (subpairs, numallpairs)
 }
@@ -198,8 +204,8 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2];
-        let inp_map = analyze_subs(&mut submissions, None, 10, 60);
-        let out = find_overlaps(&inp_map, 0.0);
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60, false);
+        let out = find_overlaps(&inp_map, 0.0, false);
 
         let mut exp_matches = HashSet::new();
         exp_matches.insert(5421077);
@@ -270,8 +276,8 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2, &mut sub3, &mut sub4];
-        let inp_map = analyze_subs(&mut submissions, None, 10, 60);
-        let out_min_thresh = find_overlaps(&inp_map, 0.0);
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60, false);
+        let out_min_thresh = find_overlaps(&inp_map, 0.0, false);
 
         let processed_sub1 = Sub {
             dir_name: None,
@@ -383,9 +389,9 @@ mod tests {
         };
 
         let mut submissions = vec![&mut sub1, &mut sub2, &mut sub3, &mut sub4];
-        let inp_map = analyze_subs(&mut submissions, None, 10, 60);
+        let inp_map = analyze_subs(&mut submissions, None, 10, 60, false);
         //threshold is such that some pairs are filtered out
-        let out_med_thresh = find_overlaps(&inp_map, 0.3);
+        let out_med_thresh = find_overlaps(&inp_map, 0.3, false);
 
         let processed_sub1 = Sub {
             dir_name: Some(PathBuf::from("test-dirs/test/multi-file-subpairs/sub1")),
