@@ -1,5 +1,5 @@
 # Pyret Moss
-Pyret Moss is a command line application for determining the similarity of programs written in [Pyret](https://www.pyret.org/). It was inspired by the "Measure of Software Similarity" system developed at Stanford, and its core ideas can be found in [this paper](http://theory.stanford.edu/~aiken/publications/papers/sigmod03.pdf).
+Pyret Moss is a command line application for determining the similarity of programs written in [Pyret](https://www.pyret.org/). It was inspired by the ["Measure of Software Similarity"](https://theory.stanford.edu/~aiken/moss/) system developed at Stanford, and its core ideas can be found in [this paper](http://theory.stanford.edu/~aiken/publications/papers/sigmod03.pdf).
 
 Please note that while the primary intended use case for this program is to help detect plagiarism across homework assignment submissions written in Pyret, **proof of plagiarism may not be guaranteed solely from the similarity scores returned in the output**. Instructors should manually check pairs of submissions with high similarity scores before determining the presence of plagiarism. The responsibility of Moss is to present the **relative similarity** between pairs of submissions, leaving the decision of what constitutes plagiarism to the instructor. More information about understanding output can be found in the corresponding section below.
 
@@ -12,58 +12,85 @@ You can run the test suite with `cargo test`.
 ### Building for Production
 To build the project for use in a production setting, run `cargo build --release`. You can now run the compiled binary using `./target/release/pyret-moss` from the project directory.
 
-#### Adding to Path
-If you'd like to be able to access the Pyret Moss executable from anywhere on your system, you can add it to a directory that is part of your $PATH. Here is an example (for Unix systems) using the `~/.local/bin` directory: 
-
-1. Copy the executable to `~/.local/bin` by running `cp ./target/release/pyret-moss ~/.local/bin/pyret-moss` from the project root.
-2. Add `~/.local/bin` to your $PATH:
-    - `nano ~/.bashrc`. This should open your `.bashrc` for editing. 
-    - At the bottom of `~/.bashrc`, add `export PATH=${HOME}/.local/bin:$PATH`
-3. Restart your terminal, and the `pyret-moss` command should be accessible from anywhere.
+#### Execute Anywhere
+If you'd like to be able to access the Pyret Moss executable from anywhere on your system, you can copy it into `/usr/local/bin` by running
+```
+sudo cp ./target/release/pyret-moss /usr/local/bin
+```
+from the project root. Restart your terminal and you should now be able to execute the application by typing just `pyret-moss`.
 
 ### Running
-- [explain cli args]
+Usage of the application is as follows:
+```
+pyret-moss <submissions-dir> [options]
+```
+where `<submissions-dir>` is a directory containing each submission, and the following optional arguments can take the place of `[options]`:
 
-Please see the sections below for information on k, t, matching, and understanding output. Unless indicated otherwise through the flags, the program will run with the following **default configuration**:
+```
+-h, --help                              Prints this help information
+-s, --single-file-mode                  Submissions are assumed to be single .arr files
+-k, --noise <VALUE>                     Sets the noise threshold
+-t, --guarantee <VALUE>                 Sets the guarantee threshold
+    --ignore-content <DIR>              Ignore portions of submissions that match any file's content in DIR
+    --ignore-files "<FILE>[ <FILE>]"    Ignore submission files with the given names
+    --match-threshold <VALUE>           Only report submission pairs with match percentage at least VALUE (0-100)
+-o, --output <FILE>                     Write analysis to FILE instead of stdout
+-v, --verbose                           More logging
+-p, --no-pauses                         Don't pause for confirmation to continue when rendering results
+```
 
-- k = 15
-- t = 20
-- match threshold = 0
-- \<SUBMISSIONS-DIR> is expected to contain subdirectories of .arr files such that each subdirectory represents a "submission".
+For example, `pyret-moss ./subs -s -k 5 -t 15 -o ~/Desktop/out.txt -v` will expect the individual .arr files in `./subs` to each represent a submission, will run with noise threshold 5 and guarantee threshold 15, will write the output to `~/Desktop/out.txt`, and will use verbose logging during execution.
+
+**Ignore content:** The `--ignore-content` directory should contain .arr files, the content of which is expected to appear often among submissions, but shouldn't contribute to overlap (i.e. boilerplate code given to everyone).
+
+**Ignore files:** Files in student submissions that match any of the filenames given to `--ignore-files` will not be included in the analysis at all. For example, if the application is run with `--ignore-files "tests.arr common.arr"`, then any files named `tests.arr` or `common.arr` within submissions will be excluded. 
+
+See below sections for more on the noise/guarantee thresholds, match percentage, and output. If no flags are given, the program will run with the following **default configuration**:
+
+- Noise threshold: 15 characters
+- Guarantee threshold: 20 characters
+- Match threshold: 0% (all pairs shown)
+- Submissions are assumed to be *subdirectories of .arr files*
 
 ## Determining Similarity
 The process consists of four main components.
 
 ### Normalization
-As the submissions in the input directory are being read, all .arr files within each submission are first normalized to remove features from a program's text which should not differentiate it from other programs. From each original file, a normalized text is generated such that:
+As the submissions in the input directory are being read, all .arr files within each submission are first normalized to ignore features from the program text which should not differentiate it from other programs. From each original file, a normalized text is generated such that:
 
-1. identifiers are normalized
-2. type annotations are removed
-3. whitespace is removed
-4. docstrings are removed
-5. comments are removed
+1. Identifiers are normalized (all the same)
+2. Type annotations are removed
+3. Whitespace is removed
+4. Docstrings are removed
+5. Comments are removed
 
-During this process, the original line number of each character in the normalized text is stored such that it may later be accessed to line numbers with significant overlap.
+During this process, a mapping from characters in the normalized text to the line on which they occurred is preserved, so fingerprints can be later traced to lines in the original files.
 
 ### Fingerprinting
-Each normalized text is then fingerprinted, which involves determining a set of hashed substrings (fingerprints) which represent that particular text. Given a normalized text and values of k (noise threshold) and t (guarantee threshold):
+Each normalized text is then fingerprinted, which involves determining a set of hashed substrings (fingerprints) which represent that particular text. Given a normalized text and values for the noise threshold (k) and guarantee threshold (t):
 
-1. the text is converted into a sequence of "k-grams", or contiguous substrings of length k
-2. each k-gram is converted into an integer using a rolling hash function
-3. windows of hashes of length t - k + 1 are generated
-4. the robust winnowing algorithm is used to select a set of hashes from the set of windows, and these hashes are the text's fingerprints
+1. The text is converted into a sequence of "k-grams", or contiguous substrings of length k
+2. Each k-gram is converted into an integer using a rolling hash function
+3. Windows of hashes of length t - k + 1 are generated
+4. The robust winnowing algorithm is used to select a set of hashes from the set of windows, and these hashes are the text's fingerprints
 
-So what are k and t?
-- k: the noise threshold, substring matches across normalized texts shorter than k are not considered
-- t: the guarantee threshold, substring matches across normalized texts of length t or greater are guaranteed to be caught
+So what are the noise/guarantee thresholds?
+- *Noise threshold (k)*: substring matches across normalized texts shorter than k characters are not considered.
+- *Guarantee threshold (t)*: substring matches across normalized texts of length t characters or greater are guaranteed to be caught.
 
-Both k and t must be positive, and 0 < k <= 1.
+Both k and t must be positive, and 0 < k <= t.
 
 ### Matchmaking
-Once all submissions in \<SUBMISSIONS-DIR> have been fingerprinted, submissions with shared fingerprints are paired together and their set of shared hashes is stored. If a pair of submissions has a match percentile greater than the "match threshold" value, it will be included in the output. Note that a pair's "match percentile" is calculated as the quotient of its number of shared hashes and the maximum number of shared hashes between any pairs of submissions.
+Once all submissions have been fingerprinted, those with shared fingerprints are paired together. If a pair of submissions has a match percentage greater than the "match threshold" argument (default 0%), it will be included in the output. Note that a pair's "match percentage" is calculated as the quotient of its number of shared hashes and the maximum number of shared hashes between any two submissions.
 
-### Consolidation
-[include description once completed]
+### Pair Analysis
+Once submissions have been paired and the pairs ordered by number of matches, the overlap must be presented to the user effectively. To accomplish this, shared substrings of fingerprints are analyzed, and such substrings are rendered as rows in a given submission pair table in the output.
+
+The goal of this phase is to present long matches between submissions to the user as just that: long matches, as opposed to a series of smaller, disjointed segments. The substrings of shared fingerprints that appear in a pair table are chosen such that the following property holds:
+
+> If a fingerprint it shared, then one of the longest common substrings of hashes that *includes that fingerprint* appears as a match in the output. 
+
+This attempts to render fingerprints within the largest matching context in which they occur.
 
 ## Understanding Output
 [insert screenshots]
