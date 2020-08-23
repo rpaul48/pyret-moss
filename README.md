@@ -24,7 +24,7 @@ Usage of the application is as follows:
 ```
 pyret-moss <submissions-dir> [options]
 ```
-where `<submissions-dir>` is a directory containing each submission, and the following optional arguments can take the place of `[options]`:
+where `<submissions-dir>` is a directory containing each submission (subdirectory), and the following optional arguments can take the place of `[options]`:
 
 ```
 -h, --help                              Prints this help information
@@ -88,7 +88,7 @@ Once submissions have been paired and the pairs ordered by number of matches, th
 
 The goal of this phase is to present long matches between submissions to the user as just that: long matches, as opposed to a series of smaller, disjointed segments. The substrings of shared fingerprints that appear in a pair table are chosen such that the following property holds:
 
-> If a fingerprint it shared, then one of the longest common substrings of hashes that *includes that fingerprint* appears as a match in the output. 
+> If a fingerprint is shared, then one of the longest common substrings of hashes that *includes that fingerprint* appears as a match in the output. 
 
 This attempts to render fingerprints within the largest matching context in which they occur.
 

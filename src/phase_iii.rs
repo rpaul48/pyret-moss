@@ -39,7 +39,7 @@ type FpVec = Vec<Option<Fingerprint>>;
 // Matches (each of which is backed by a common substring of fingerprint hashes)
 // are selected such that the following property holds:
 // 
-// If a fingerprint it shared, then a longest common substring of hashes 
+// If a fingerprint is shared, then a longest common substring of hashes 
 // that *includes that fingerprint* appears as a match in the output. 
 //
 // It's possible that a shared fingerprint appear in more than one match (it 
