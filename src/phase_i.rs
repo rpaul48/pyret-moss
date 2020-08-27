@@ -59,6 +59,7 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
         println!("\nAnalyzing all submission content...");
         println!("noise threshold = {} chars", k);
         println!("guarantee threshold = {} chars", t);
+        println!("window size = {} fingerprints", t - k + 1);
 
         if let Some(ref set) = ignore {
             println!("ignoring {} fingerprints", set.len());
