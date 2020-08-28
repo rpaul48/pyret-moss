@@ -214,7 +214,7 @@ OPTIONS:
     -t, --guarantee <VALUE>                 Sets the guarantee threshold
         --ignore-content <DIR>              Ignore portions of submissions that match any file's content in DIR
         --ignore-files "<FILE>[ <FILE>]"    Ignore submission files with the given names
-        --match-threshold <VALUE>           Only report submission pairs with match percentage at least VALUE (0-100)
+        --match-threshold <VALUE>           Only report submission pairs with pair percentile at least VALUE (0-100)
     -o, --output <FILE>                     Write analysis to FILE instead of stdout
     -v, --verbose                           More logging
     -p, --no-pauses                         Don't pause for confirmation to continue when rendering results
