@@ -33,7 +33,7 @@ where `<submissions-dir>` is a directory containing each submission (subdirector
 -t, --guarantee <VALUE>                 Sets the guarantee threshold
     --ignore-content <DIR>              Ignore portions of submissions that match any file's content in DIR
     --ignore-files "<FILE>[ <FILE>]"    Ignore submission files with the given names
-    --match-threshold <VALUE>           Only report submission pairs with match percentage at least VALUE (0-100)
+    --match-threshold <VALUE>           Only report submission pairs with pair percentile at least VALUE (0-100)
 -o, --output <FILE>                     Write analysis to FILE instead of stdout
 -v, --verbose                           More logging
 -p, --no-pauses                         Don't pause for confirmation to continue when rendering results
@@ -81,7 +81,7 @@ So what are the noise/guarantee thresholds?
 Both k and t must be positive, and 0 < k <= t.
 
 ### Matchmaking
-Once all submissions have been fingerprinted, those with shared fingerprints are paired together. If a pair of submissions has a match percentage greater than the "match threshold" argument (default 0%), it will be included in the output. Note that a pair's "match percentage" is calculated as the quotient of its number of shared hashes and the maximum number of shared hashes between any two submissions.
+Once all submissions have been fingerprinted, those with shared fingerprints are paired together. If a pair of submissions has a pair "percentile" greater than the "match threshold" argument (default 0%), it will be included in the output. Note that a pair's "percentile" is calculated as the quotient of its number of shared hashes and the maximum number of shared hashes between any two submissions.
 
 ### Pair Analysis
 Once submissions have been paired and the pairs ordered by number of matches, the overlap must be presented to the user effectively. To accomplish this, shared substrings of fingerprints are analyzed, and such substrings are rendered as rows in a given submission pair table in the output.
@@ -93,4 +93,17 @@ The goal of this phase is to present long matches between submissions to the use
 This attempts to render fingerprints within the largest matching context in which they occur.
 
 ## Understanding Output
-[insert screenshots]
+The program produces a series of tables as output. 
+
+- each table represents a *pair* of submissions that share significant overlap
+- each row in a table represents a *substring* of fingerprints shared between the two submissions
+    - the length of this substring is indicated in the `(size)` column
+    - rows are sorted by substring length, as long substrings indicate sections of each submission that share significant overlap
+
+#### Understanding Pair Tables
+![Submission pair table with annotations](imgs/pair_table_annotated.png)
+
+- **total number of shared fingerprints** is the number of distinct hashes of fingerprints that were shared between submissions.
+- **pair "percentile"** indicates what percentage the total shared fingerprints for this pair comprises of the max total shared fingerprints across all submission pairs. This is used to limit the output through the `--match-threshold` parameter.
+- **content match percentages** indicates what percentage of a given submission's fingerprints are shared with the other submission.
+    - in this example, 75% of `sub1/`'s fingeprints also appear in `sub3/`, but only 28% of `sub3/`'s fingerprints appear in `sub1/`.
