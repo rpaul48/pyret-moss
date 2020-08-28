@@ -104,3 +104,7 @@ The program produces a series of tables as output. Each table represents a *pair
 - each row in a table represents a *substring* of fingerprints shared between the two submissions
     - the length of this substring is indicated in the `(size)` column
     - rows are sorted by substring length, as long substrings indicate sections of each submission that share significant overlap
+
+<img width="400" src="imgs/multi_line_cells.png" alt="Rows with multiple lines">
+
+If there is significant internal repetition within a submission, then several disparate sections of files may share a given substring of fingerprints. In such cases, multiple sections of files may be listed within a given row (pictured above).
