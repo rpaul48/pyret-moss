@@ -10,14 +10,17 @@ use std::collections::HashSet;
 use prettytable::Table;
 
 // number of results to display before prompting the user to continue
-const RESULT_BUFFER_SIZE: usize = 1;
+const RESULT_BUFFER_SIZE: usize = 50;
 
 // Given a vector of matched submission pairs ordered by amount of overlap, 
 // render a message (to stdout or the given file) summarizing the overlaps
 pub fn render_results(sub_dir: &Path, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>, 
     match_thresh: f64, total_pairs: usize, no_pauses: bool, verbose: bool) {
 
-    if verbose { println!("\nRendering results..."); }
+    if verbose { 
+        println!("\nRendering results...");
+        if no_pauses { println!("Not pausing during output"); }
+    }
 
     // if output filepath given, start redirecting stdout to that file
     let redirecting = out_file.is_some();
