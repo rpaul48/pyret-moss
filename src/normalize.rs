@@ -45,10 +45,14 @@ const UNIFORM_IDENTIFIER: char = 'v';
 //      3. remove whitespace
 //      4. remove docstrings
 //      5. remove comments
+// Non-ASCII text is also ignored.
 // Returns the normalized string & enough info to map parts
 // of the normalized text to line numbers in the original (LineMapping)
 pub fn normalize(program: &str) -> NormText {
-    let mut head: &str = &program;          // rest of program to be processed
+    // remove any non-ascii text
+    let program = program.replace(|c: char| !c.is_ascii(), "");
+
+    let mut head: &str = program.as_str();  // rest of program to be processed
     let mut norm = String::new();           // normalized program text
     let mut norm_idx = 0;                   // next index to write to in norm text
     let mut line_ends = Vec::new();         // encodes line info (see NormText above)
@@ -539,6 +543,31 @@ mod tests {
 
             "examples:v=\"x = 5\"visvend",
             vec![9, 18, 22, 25]);
+    }
+
+    #[test]
+    fn ignores_non_ascii() {
+        // expect a program's norm text to be a particular string
+        fn expect_text(program: &str, expected: &str) {
+            let norm = normalize(&program);
+            assert_eq!(norm.value, expected);
+        }
+
+        expect_text(
+            "chars = \"äşŖƥΣ\"", 
+            "v=\"\"");
+        expect_text(
+            "\"y̆\"", 
+            "\"y\"");   // the y part of the character remains, as it is ascii
+        expect_text(
+            "```ᾃὙῲЯфҖ```", 
+            "``````");
+        expect_text(
+            "\"a̐éö̲\"",
+            "\"aeo\"");
+        expect_text(
+            "string = \"◌̕◌̲neat◌͇\"",
+            "v=\"neat\"");
     }
 
 }
