@@ -1,4 +1,4 @@
-/* fingerprint.rs: Document fingerprinting using robust winnowing */
+/// fingerprint.rs: Document fingerprinting using robust winnowing
 
 use crate::normalize::NormText;
 
@@ -9,17 +9,17 @@ static BASE: i64 = 256;
 // possible hash values (0, PRIME_MODULUS]
 static PRIME_MODULUS: i64 = 2147483647;
 
-// A Fingerprint contains a hash of a k-gram within a document,
-// and the range of line numbers to which that k-gram corresponds, inclusive
+/// A Fingerprint contains a hash of a k-gram within a document,
+/// and the range of line numbers to which that k-gram corresponds, inclusive
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone, PartialOrd, Ord)]
 pub struct Fingerprint {
     pub hash: i64,
     pub lines: (i32, i32)
 }
 
-// computes the Fingerprints of a normalized document using robust winnowing
-// input k represents the noise threshold; matches shorter than it are not considered
-// input t represents the the min substring length at which matches are guaranteed to be caught
+/// computes the Fingerprints of a normalized document using robust winnowing
+/// input k represents the noise threshold; matches shorter than it are not considered
+/// input t represents the the min substring length at which matches are guaranteed to be caught
 pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
     // the text field of the input NormText
     let doc: &String = &nt.value;
@@ -69,11 +69,11 @@ pub fn fingerprint(nt: NormText, k: i32, t: i32) -> Vec<Fingerprint> {
     fingerprints
 }
 
-// the robust winnowing algorithm; takes in a Vec<i64> of hashes and returns the fingerprints,
-// or a Vec<(i64, usize)>, which represents a subset of the input hashes paired with their index
-// In each window select the minimum hash value. If possible break ties by selecting
-// the same hash as the window one position to the left. If not, select the rightmost minimal hash.
-// Save all selected hashes as the fingerprints of the document.
+/// The robust winnowing algorithm; takes in a Vec<i64> of hashes and returns the fingerprints,
+/// or a Vec<(i64, usize)>, which represents a subset of the input hashes paired with their index.
+/// Algorithm: In each window select the minimum hash value. If possible break ties by selecting
+/// the same hash as the window one position to the left. If not, select the rightmost minimal hash.
+/// Save all selected hashes as the fingerprints of the document.
 fn robust_winnow(hashed_kgrams: Vec<i64>, window_size: usize) -> Vec<(i64, usize)> {
 
     let max_window_index: usize = hashed_kgrams.len() as usize;
@@ -149,8 +149,8 @@ fn robust_winnow(hashed_kgrams: Vec<i64>, window_size: usize) -> Vec<(i64, usize
     fingerprint_tuples
 }
 
-// a rolling hash function for a vector of strings
-// assumes each "kgram" &str in the input Vec is of length k
+/// A rolling hash function for a vector of strings;
+/// assumes each "kgram" &str in the input Vec is of length k
 fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
     let len = kgrams.len();
 
@@ -199,8 +199,8 @@ fn rolling_hash(mut kgrams: Vec<&str>) -> Vec<i64> {
     output
 }
 
-// a simple, non-rolling hash function for strings
-// only matches the output of rolling_hash() when the input str is of length k
+/// a simple, non-rolling hash function for strings
+/// only matches the output of rolling_hash() when the input str is of length k
 fn hash(str: &str) -> i64 {
     let len = str.chars().count() as usize;
     let mut hash_val: i64 = 0;
@@ -216,8 +216,8 @@ fn hash(str: &str) -> i64 {
     hash_val
 }
 
-// a modular exponentiation function, which calculates the remainder when base is raised to
-// the power of exponent and divided by modulus
+/// a modular exponentiation function, which calculates the remainder when base is raised to
+/// the power of exponent and divided by modulus
 fn mod_exp(mut base: i64, mut exponent: i64, modulus: i64) -> i64 {
     if modulus == 1 {
         0

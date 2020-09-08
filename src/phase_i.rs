@@ -1,4 +1,4 @@
-/* Phase I: Normalize/fingerprint all submissions */
+/// Phase I: Normalize/fingerprint all submissions
 
 use fnv::FnvHashMap;
 use std::collections::HashSet;
@@ -11,8 +11,8 @@ use crate::file_io;
 use crate::fingerprint::{self, Fingerprint};
 use crate::normalize;
 
-// Read a file's contents into memory and normalize/fingerprint it
-// k, t are fingerprint params
+/// Read a file's contents into memory and normalize/fingerprint it
+/// k, t are fingerprint params
 fn analyze_file(path: &Path, k: i32, t: i32) -> io::Result<Vec<Fingerprint>> {
     // read file text
     let mut file = File::open(path.to_str().unwrap())?;
@@ -26,9 +26,9 @@ fn analyze_file(path: &Path, k: i32, t: i32) -> io::Result<Vec<Fingerprint>> {
     Ok(fps)
 }
 
-// Construct a set of fingerprints to ignore by
-// reading/normalizing/fingerprinting the given files
-// k, t are fingerprint params
+/// Construct a set of fingerprints to ignore by
+/// reading/normalizing/fingerprinting the given files
+/// k, t are fingerprint params
 pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> HashSet<i64> {
     let ignore_paths = file_io::arr_files_in_dir(ignore_dir);
     let mut ignore_set = HashSet::new();
@@ -51,11 +51,11 @@ pub fn make_ignore_set(ignore_dir: &Path, k: i32, t: i32) -> HashSet<i64> {
     ignore_set
 }
 
-// Read/normalize/fingerprint documents in given submissions, constructing
-// a hashmap from fingerprint hashes to the set of subs that share that hash
+/// Read/normalize/fingerprint documents in given submissions, constructing
+/// a hashmap from fingerprint hashes to the set of subs that share that hash
 pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i64>>,
     k: i32, t: i32, verbose: bool) -> FnvHashMap<i64, HashSet<&'a Sub>> {
-    if verbose { 
+    if verbose {
         println!("\nAnalyzing all submission content...");
         println!("noise threshold = {} chars", k);
         println!("guarantee threshold = {} chars", t);
@@ -103,9 +103,9 @@ pub fn analyze_subs<'a>(subs: &'a mut Vec<&'a mut Sub>, ignore: Option<HashSet<i
                 None => fps,
             };
 
-            if verbose { 
+            if verbose {
                 let fp_count = fps.len();
-                println!("\t\t{}: {} fingerprints ({} ignored)", 
+                println!("\t\t{}: {} fingerprints ({} ignored)",
                     doc_path.file_name().unwrap().to_str().unwrap(),
                     fp_count,
                     orig_amount_fps - fp_count);
@@ -141,10 +141,10 @@ mod tests {
 
         {
             let exp_fps = vec![
-                Fingerprint { hash: 1718972022, lines: (2, 2) }, 
-                Fingerprint { hash: 1853237366, lines: (2, 2) }, 
-                Fingerprint { hash: 678832442, lines: (2, 2) }, 
-                Fingerprint { hash: 691697194, lines: (2, 3) }, 
+                Fingerprint { hash: 1718972022, lines: (2, 2) },
+                Fingerprint { hash: 1853237366, lines: (2, 2) },
+                Fingerprint { hash: 678832442, lines: (2, 2) },
+                Fingerprint { hash: 691697194, lines: (2, 3) },
                 Fingerprint { hash: 712402286, lines: (3, 4) }];
 
             // k=4, t=6
@@ -155,9 +155,9 @@ mod tests {
         }
         {
             let exp_fps = vec![
-                Fingerprint { hash: 1684351798, lines: (1, 3) }, 
-                Fingerprint { hash: 711221822, lines: (1, 3) }, 
-                Fingerprint { hash: 981235476, lines: (3, 4) }, 
+                Fingerprint { hash: 1684351798, lines: (1, 3) },
+                Fingerprint { hash: 711221822, lines: (1, 3) },
+                Fingerprint { hash: 981235476, lines: (3, 4) },
                 Fingerprint { hash: 678832721, lines: (4, 5) }];
 
             // k=5, t=10
@@ -180,7 +180,7 @@ mod tests {
                 390399223, 440994808, 317504781, 691281357, 754436089, 666964489, 317504781, 155049740,
 
                 // ignore2.arr
-                743504368, 743504367, 827075361, 743487652, 317508614, 834200077, 123232836, 683703066, 
+                743504368, 743504367, 827075361, 743487652, 317508614, 834200077, 123232836, 683703066,
                 793965034, 760996000, 666965465, 317508627, 255995164, 123232842, 17122932, 16820579,
 
                 // ignore3.arr
@@ -194,16 +194,16 @@ mod tests {
 
             let exp_set: HashSet<i64> = [
                 // ignore1.arr
-                1684412226, 712063801, 1768244249, 1684412998, 762659386, 1702108489, 711604553, 1668106304, 
-                1684426514, 673394523, 577067955, 1667576388, 761543728, 778189628, 573197906, 694833831, 
+                1684412226, 712063801, 1768244249, 1684412998, 762659386, 1702108489, 711604553, 1668106304,
+                1684426514, 673394523, 577067955, 1667576388, 761543728, 778189628, 573197906, 694833831,
                 1668106304, 1684426514, 673394523, 577067955, 1667576388, 761543737, 1668299207, 1835939404, 778195278,
 
                 // ignore2.arr
-                1869827926, 1635016533, 1668106304, 1684426579, 1668106304, 1684426579, 1702319157, 1768831835, 
-                1836145732, 1869827926, 1635016533, 1668106304, 1684426514, 673398356, 578049201, 1634946100, 
-                761738292, 778193724, 573376343, 578005182, 1684451665, 1685340991, 1718305856, 1785479480, 
-                1685341505, 1685339454, 1685336822, 573198394, 694827687, 1668106304, 1684426514, 673398369, 
-                578052544, 1869829390, 778196826, 573376343, 578005188, 1684843345, 1684474119, 842268931, 
+                1869827926, 1635016533, 1668106304, 1684426579, 1668106304, 1684426579, 1702319157, 1768831835,
+                1836145732, 1869827926, 1635016533, 1668106304, 1684426514, 673398356, 578049201, 1634946100,
+                761738292, 778193724, 573376343, 578005182, 1684451665, 1685340991, 1718305856, 1785479480,
+                1685341505, 1685339454, 1685336822, 573198394, 694827687, 1668106304, 1684426514, 673398369,
+                578052544, 1869829390, 778196826, 573376343, 578005188, 1684843345, 1684474119, 842268931,
                 859374488, 879027156, 1685312720, 1684486423, 825818887,
 
                 // ignore3.arr
@@ -245,10 +245,10 @@ mod tests {
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/single-file/sub1.arr"),
                     vec![
-                        Fingerprint { hash: 5421077, lines: (11, 12) }, 
-                        Fingerprint { hash: 31722361, lines: (15, 16) }, 
+                        Fingerprint { hash: 5421077, lines: (11, 12) },
+                        Fingerprint { hash: 31722361, lines: (15, 16) },
                         Fingerprint { hash: 30182096, lines: (16, 16) },
-                        Fingerprint { hash: 14933625, lines: (17, 18) }, 
+                        Fingerprint { hash: 14933625, lines: (17, 18) },
                         Fingerprint { hash: 73943364, lines: (19, 19) }
                     ])
             ]
@@ -260,8 +260,8 @@ mod tests {
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/single-file/sub2.arr"),
                     vec![
-                        Fingerprint { hash: 5421077, lines: (8, 10) }, 
-                        Fingerprint { hash: 14933625, lines: (13, 14) }, 
+                        Fingerprint { hash: 5421077, lines: (8, 10) },
+                        Fingerprint { hash: 14933625, lines: (13, 14) },
                         Fingerprint { hash: 73943364, lines: (15, 15) }
                     ])
             ]
@@ -306,20 +306,20 @@ mod tests {
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub1/common.arr"),
                     vec![
-                        Fingerprint { hash: 712012601, lines: (1, 2) }, 
+                        Fingerprint { hash: 712012601, lines: (1, 2) },
                         Fingerprint { hash: 762608186, lines: (2, 2) },
-                        Fingerprint { hash: 711221850, lines: (2, 5) }, 
+                        Fingerprint { hash: 711221850, lines: (2, 5) },
                         Fingerprint { hash: 678833506, lines: (7, 7) }
                     ]),
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub1/main.arr"),
                     vec![
-                        Fingerprint { hash: 711358008, lines: (1, 3) }, 
-                        Fingerprint { hash: 678832678, lines: (3, 3) }, 
-                        Fingerprint { hash: 691697430, lines: (3, 5) }, 
-                        Fingerprint { hash: 712407124, lines: (5, 6) }, 
-                        Fingerprint { hash: 674572885, lines: (7, 7) }, 
-                        Fingerprint { hash: 674703957, lines: (8, 8) }, 
+                        Fingerprint { hash: 711358008, lines: (1, 3) },
+                        Fingerprint { hash: 678832678, lines: (3, 3) },
+                        Fingerprint { hash: 691697430, lines: (3, 5) },
+                        Fingerprint { hash: 712407124, lines: (5, 6) },
+                        Fingerprint { hash: 674572885, lines: (7, 7) },
+                        Fingerprint { hash: 674703957, lines: (8, 8) },
                         Fingerprint { hash: 674050581, lines: (9, 9) }
                     ])
             ]
@@ -330,20 +330,20 @@ mod tests {
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub2/common.arr"),
                     vec![
-                        Fingerprint { hash: 711221822, lines: (1, 3) }, 
+                        Fingerprint { hash: 711221822, lines: (1, 3) },
                         Fingerprint { hash: 678833506, lines: (8, 8) }
                     ]),
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub2/main.arr"),
                     vec![
-                        Fingerprint { hash: 711358008, lines: (1, 4) }, 
-                        Fingerprint { hash: 678832678, lines: (4, 4) }, 
-                        Fingerprint { hash: 691697430, lines: (4, 6) }, 
-                        Fingerprint { hash: 712402522, lines: (6, 7) }, 
-                        Fingerprint { hash: 980822283, lines: (9, 10) }, 
-                        Fingerprint { hash: 674572885, lines: (10, 10) }, 
-                        Fingerprint { hash: 674703957, lines: (11, 11) }, 
-                        Fingerprint { hash: 674050581, lines: (12, 12) }, 
+                        Fingerprint { hash: 711358008, lines: (1, 4) },
+                        Fingerprint { hash: 678832678, lines: (4, 4) },
+                        Fingerprint { hash: 691697430, lines: (4, 6) },
+                        Fingerprint { hash: 712402522, lines: (6, 7) },
+                        Fingerprint { hash: 980822283, lines: (9, 10) },
+                        Fingerprint { hash: 674572885, lines: (10, 10) },
+                        Fingerprint { hash: 674703957, lines: (11, 11) },
+                        Fingerprint { hash: 674050581, lines: (12, 12) },
                         Fingerprint { hash: 674376277, lines: (13, 13) }
                     ])
             ]
@@ -407,16 +407,16 @@ mod tests {
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub1/common.arr"),
                     vec![
-                        Fingerprint { hash: 712012601, lines: (1, 2) }, 
+                        Fingerprint { hash: 712012601, lines: (1, 2) },
                         Fingerprint { hash: 762608186, lines: (2, 2) },
                         Fingerprint { hash: 678833506, lines: (7, 7) }
                     ]),
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub1/main.arr"),
                     vec![
-                        Fingerprint { hash: 712407124, lines: (5, 6) }, 
-                        Fingerprint { hash: 674572885, lines: (7, 7) }, 
-                        Fingerprint { hash: 674703957, lines: (8, 8) }, 
+                        Fingerprint { hash: 712407124, lines: (5, 6) },
+                        Fingerprint { hash: 674572885, lines: (7, 7) },
+                        Fingerprint { hash: 674703957, lines: (8, 8) },
                         Fingerprint { hash: 674050581, lines: (9, 9) }
                     ])
             ]
@@ -432,10 +432,10 @@ mod tests {
                 Doc::Processed(
                     PathBuf::from("test-dirs/test/multi-file/sub2/main.arr"),
                     vec![
-                        Fingerprint { hash: 712402522, lines: (6, 7) }, 
-                        Fingerprint { hash: 674572885, lines: (10, 10) }, 
-                        Fingerprint { hash: 674703957, lines: (11, 11) }, 
-                        Fingerprint { hash: 674050581, lines: (12, 12) }, 
+                        Fingerprint { hash: 712402522, lines: (6, 7) },
+                        Fingerprint { hash: 674572885, lines: (10, 10) },
+                        Fingerprint { hash: 674703957, lines: (11, 11) },
+                        Fingerprint { hash: 674050581, lines: (12, 12) },
                         Fingerprint { hash: 674376277, lines: (13, 13) }
                     ])
             ]

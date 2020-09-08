@@ -1,4 +1,4 @@
-/* Phase III: Find common substrings of fingerprints in a submission pair */
+/// Phase III: Find common substrings of fingerprints in a submission pair
 
 use std::collections::{HashSet, BTreeMap};
 use std::cmp::{min, max};
@@ -6,15 +6,15 @@ use crate::phase_ii::SubPair;
 use crate::fingerprint::Fingerprint;
 use crate::{Sub, Doc};
 
-// An Entry indicates a particular section of a document within a submission.
+/// An Entry indicates a particular section of a document within a submission.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct Entry {
     pub doc_idx: usize,
     pub lines: (i32, i32)
 }
 
-// A Match indicates a set of entries from submission A which all share 
-// a particular string of fingerprint hashes with a set of entries from B.
+/// A Match indicates a set of entries from submission A which all share
+/// a particular string of fingerprint hashes with a set of entries from B.
 #[derive(Debug, PartialEq)]
 pub struct Match {
     pub size: usize,
@@ -22,8 +22,8 @@ pub struct Match {
     pub b_entries: HashSet<Entry>
 }
 
-// A SubString represents a shared string of fingerprints
-// between submissions A and B.
+/// A SubString represents a shared string of fingerprints
+/// between submissions A and B.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 struct SubString {
     size: usize,
@@ -35,16 +35,16 @@ struct SubString {
 type SubStrTable = Vec<Vec<usize>>;
 type FpVec = Vec<Option<Fingerprint>>;
 
-// Analyzes a pair of submissions to determine how overlap should be reported.
-// Matches (each of which is backed by a common substring of fingerprint hashes)
-// are selected such that the following property holds:
-// 
-// If a fingerprint is shared, then a longest common substring of hashes 
-// that *includes that fingerprint* appears as a match in the output. 
-//
-// It's possible that a shared fingerprint appear in more than one match (it 
-// may be part of the LCS that includes some other fingerprint), but it must 
-// appear at least once.
+/// Analyzes a pair of submissions to determine how overlap should be reported.
+/// Matches (each of which is backed by a common substring of fingerprint hashes)
+/// are selected such that the following property holds:
+///
+/// If a fingerprint is shared, then a longest common substring of hashes
+/// that *includes that fingerprint* appears as a match in the output.
+///
+/// It's possible that a shared fingerprint appear in more than one match (it
+/// may be part of the LCS that includes some other fingerprint), but it must
+/// appear at least once.
 pub fn analyze_pair(pair: &SubPair) -> Vec<Match> {
     // encode submission fingerprints as single vector of fingerprint options
     let rows = flatten_docs(pair.a);
@@ -94,8 +94,8 @@ pub fn analyze_pair(pair: &SubPair) -> Vec<Match> {
     matches
 }
 
-// Produce a vector of Options of all fingerprints in the given submission, 
-// with different documents delimited by None
+/// Produce a vector of Options of all fingerprints in the given submission,
+/// with different documents delimited by None
 fn flatten_docs(sub: &Sub) -> FpVec {
     let mut flat: Vec<Option<Fingerprint>> = Vec::new();
 
@@ -114,8 +114,8 @@ fn flatten_docs(sub: &Sub) -> FpVec {
     flat
 }
 
-// Populates the DP table for longest common substring, using rows
-// & cols as the strings (documents are delimited by None)
+/// Populates the DP table for longest common substring, using rows
+/// & cols as the strings (documents are delimited by None)
 fn substr_table(rows: &FpVec, cols: &FpVec) -> SubStrTable {
     let mut table = Vec::new();
 
@@ -141,8 +141,8 @@ fn substr_table(rows: &FpVec, cols: &FpVec) -> SubStrTable {
     table
 }
 
-// Choose longest common substrings from the substring table such that each row/col 
-// fingerprint has at least 1 of their longest common substrings in the chosen set
+/// Choose longest common substrings from the substring table such that each row/col
+/// fingerprint has at least 1 of their longest common substrings in the chosen set
 fn choose_substrs(rows: &FpVec, cols: &FpVec, table: &SubStrTable) -> HashSet<SubString> {
     let mut all_substrs = Vec::new();
     let mut row_to_substrs: BTreeMap<usize, Vec<usize>> = BTreeMap::new();
@@ -176,7 +176,7 @@ fn choose_substrs(rows: &FpVec, cols: &FpVec, table: &SubStrTable) -> HashSet<Su
 
             all_substrs.push(new_substr.clone());       // add copy to substrings vec
             let new_substr_idx = all_substrs.len() - 1; // get index of newly-added substring
-            
+
             let affected_rows = r..(r + new_substr.size);
             let affected_cols = c..(c + new_substr.size);
 
@@ -210,9 +210,9 @@ fn choose_substrs(rows: &FpVec, cols: &FpVec, table: &SubStrTable) -> HashSet<Su
     chosen_substrs
 }
 
-// Choose a set of substrings (by index) for the fingerprints along a given dimension
-// (row/col) such that at least one of each fp's longest common substring is included
-fn choose_for_dim(dim_to_substrs: &BTreeMap<usize, Vec<usize>>, 
+/// Choose a set of substrings (by index) for the fingerprints along a given dimension
+/// (row/col) such that at least one of each fp's longest common substring is included
+fn choose_for_dim(dim_to_substrs: &BTreeMap<usize, Vec<usize>>,
     all_substrs: &Vec<SubString>, chosen: &HashSet<usize>) -> HashSet<usize> {
     // new substrings to add, having processed this dimension
     let mut chosen_this_dim: HashSet<usize> = HashSet::new();
@@ -236,7 +236,7 @@ fn choose_for_dim(dim_to_substrs: &BTreeMap<usize, Vec<usize>>,
 
                     // if this substring is longer, OR
                     // if same size & this substr is already chosen but max is not
-                    if  (this_size > max_size) || 
+                    if  (this_size > max_size) ||
                         (!max_already_chosen && (this_size == max_size) && this_already_chosen) {
                         max = Some((this_already_chosen, idx));
                     }
@@ -259,9 +259,9 @@ fn choose_for_dim(dim_to_substrs: &BTreeMap<usize, Vec<usize>>,
     chosen_this_dim
 }
 
-// Trace diagonally down/right from table[r][c] to construct a SubString 
-// representing the substring that lies on that diagonal
-fn trace_diagonal(table: &SubStrTable, dims: (&FpVec, &FpVec), 
+/// Trace diagonally down/right from table[r][c] to construct a SubString
+/// representing the substring that lies on that diagonal
+fn trace_diagonal(table: &SubStrTable, dims: (&FpVec, &FpVec),
     coord: (usize, usize), docs: (usize, usize)) -> SubString {
 
     let (rows, cols) = dims;
@@ -518,20 +518,20 @@ mod tests {
     fn test_trace_diagonal() {
         {
             let rows = vec![
-                None, 
-                Some(Fingerprint { hash: 1, lines: (1, 5) }), 
-                Some(Fingerprint { hash: 2, lines: (5, 7) }), 
-                Some(Fingerprint { hash: 1, lines: (10, 15) }), 
+                None,
+                Some(Fingerprint { hash: 1, lines: (1, 5) }),
+                Some(Fingerprint { hash: 2, lines: (5, 7) }),
+                Some(Fingerprint { hash: 1, lines: (10, 15) }),
                 Some(Fingerprint { hash: 2, lines: (20, 31) })];
 
             let cols = vec![
-                None, 
-                Some(Fingerprint { hash: 2, lines: (3, 9) }), 
-                Some(Fingerprint { hash: 1, lines: (10, 22) }), 
-                Some(Fingerprint { hash: 2, lines: (18, 24) }), 
-                None, 
-                Some(Fingerprint { hash: 1, lines: (14, 17) }), 
-                Some(Fingerprint { hash: 2, lines: (16, 19) }), 
+                None,
+                Some(Fingerprint { hash: 2, lines: (3, 9) }),
+                Some(Fingerprint { hash: 1, lines: (10, 22) }),
+                Some(Fingerprint { hash: 2, lines: (18, 24) }),
+                None,
+                Some(Fingerprint { hash: 1, lines: (14, 17) }),
+                Some(Fingerprint { hash: 2, lines: (16, 19) }),
                 Some(Fingerprint { hash: 1, lines: (20, 22) })];
 
             let table = vec![
@@ -592,19 +592,19 @@ mod tests {
         }
         {
             let rows = vec![
-                None, 
-                Some(Fingerprint { hash: 100, lines: (12, 14) }), 
-                Some(Fingerprint { hash: 200, lines: (13, 18) }), 
-                Some(Fingerprint { hash: 300, lines: (20, 25) }), 
+                None,
+                Some(Fingerprint { hash: 100, lines: (12, 14) }),
+                Some(Fingerprint { hash: 200, lines: (13, 18) }),
+                Some(Fingerprint { hash: 300, lines: (20, 25) }),
                 Some(Fingerprint { hash: 400, lines: (24, 29) }),
                 Some(Fingerprint { hash: 500, lines: (30, 41) })];
 
             let cols = vec![
-                None, 
-                Some(Fingerprint { hash: 100, lines: (2, 5) }), 
-                None, 
-                Some(Fingerprint { hash: 200, lines: (1, 3) }), 
-                Some(Fingerprint { hash: 300, lines: (4, 5) }), 
+                None,
+                Some(Fingerprint { hash: 100, lines: (2, 5) }),
+                None,
+                Some(Fingerprint { hash: 200, lines: (1, 3) }),
+                Some(Fingerprint { hash: 300, lines: (4, 5) }),
                 Some(Fingerprint { hash: 400, lines: (7, 18) }),
                 Some(Fingerprint { hash: 500, lines: (15, 22) })];
 
@@ -659,20 +659,20 @@ mod tests {
     fn test_choose_substrs() {
         {
             let rows = vec![
-                None, 
-                Some(Fingerprint { hash: 1, lines: (1, 5) }), 
-                Some(Fingerprint { hash: 2, lines: (5, 7) }), 
-                Some(Fingerprint { hash: 1, lines: (10, 15) }), 
+                None,
+                Some(Fingerprint { hash: 1, lines: (1, 5) }),
+                Some(Fingerprint { hash: 2, lines: (5, 7) }),
+                Some(Fingerprint { hash: 1, lines: (10, 15) }),
                 Some(Fingerprint { hash: 2, lines: (20, 31) })];
 
             let cols = vec![
-                None, 
-                Some(Fingerprint { hash: 2, lines: (3, 9) }), 
-                Some(Fingerprint { hash: 1, lines: (10, 22) }), 
-                Some(Fingerprint { hash: 2, lines: (18, 24) }), 
-                None, 
-                Some(Fingerprint { hash: 1, lines: (14, 17) }), 
-                Some(Fingerprint { hash: 2, lines: (16, 19) }), 
+                None,
+                Some(Fingerprint { hash: 2, lines: (3, 9) }),
+                Some(Fingerprint { hash: 1, lines: (10, 22) }),
+                Some(Fingerprint { hash: 2, lines: (18, 24) }),
+                None,
+                Some(Fingerprint { hash: 1, lines: (14, 17) }),
+                Some(Fingerprint { hash: 2, lines: (16, 19) }),
                 Some(Fingerprint { hash: 1, lines: (20, 22) })];
 
             let table = vec![
@@ -713,21 +713,21 @@ mod tests {
         }
         {
             let rows = vec![
-                None, 
-                Some(Fingerprint { hash: 7, lines: (2, 19) }), 
-                Some(Fingerprint { hash: 8, lines: (15, 22) }), 
-                Some(Fingerprint { hash: 7, lines: (30, 35) }), 
+                None,
+                Some(Fingerprint { hash: 7, lines: (2, 19) }),
+                Some(Fingerprint { hash: 8, lines: (15, 22) }),
+                Some(Fingerprint { hash: 7, lines: (30, 35) }),
                 Some(Fingerprint { hash: 8, lines: (34, 39) }),
                 Some(Fingerprint { hash: 9, lines: (40, 42) })];
 
             let cols = vec![
-                None, 
-                Some(Fingerprint { hash: 7, lines: (14, 20) }), 
-                Some(Fingerprint { hash: 8, lines: (16, 22) }), 
-                Some(Fingerprint { hash: 9, lines: (18, 24) }), 
                 None,
-                Some(Fingerprint { hash: 7, lines: (4, 8) }), 
-                Some(Fingerprint { hash: 8, lines: (10, 24) }), 
+                Some(Fingerprint { hash: 7, lines: (14, 20) }),
+                Some(Fingerprint { hash: 8, lines: (16, 22) }),
+                Some(Fingerprint { hash: 9, lines: (18, 24) }),
+                None,
+                Some(Fingerprint { hash: 7, lines: (4, 8) }),
+                Some(Fingerprint { hash: 8, lines: (10, 24) }),
                 Some(Fingerprint { hash: 11, lines: (21, 40) })];
 
             let table = vec![
@@ -970,12 +970,12 @@ mod tests {
                 // [100, 200]
                 Match {
                     size: 2,
-                    a_entries: set(vec![ 
+                    a_entries: set(vec![
                         Entry { doc_idx: 0, lines: (10, 28) },
                         Entry { doc_idx: 0, lines: (29, 48) },
                         Entry { doc_idx: 1, lines: (3, 11) }
                     ]),
-                    b_entries: set(vec![ 
+                    b_entries: set(vec![
                         Entry { doc_idx: 0, lines: (9, 26) },
                         Entry { doc_idx: 1, lines: (39, 45) },
                         Entry { doc_idx: 1, lines: (51, 58) }

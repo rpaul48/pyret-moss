@@ -1,4 +1,4 @@
-/* results.rs: Render findings of overlap between submissions, if any */
+/// results.rs: Render findings of overlap between submissions, if any
 
 use crate::{Sub, Doc};
 use std::path::{Path, PathBuf, Component};
@@ -12,12 +12,12 @@ use prettytable::Table;
 // number of results to display before prompting the user to continue
 const RESULT_BUFFER_SIZE: usize = 50;
 
-// Given a vector of matched submission pairs ordered by amount of overlap, 
-// render a message (to stdout or the given file) summarizing the overlaps
-pub fn render_results(sub_dir: &Path, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>, 
+/// Given a vector of matched submission pairs ordered by amount of overlap,
+/// render a message (to stdout or the given file) summarizing the overlaps
+pub fn render_results(sub_dir: &Path, sub_pairs: Vec<SubPair>, mode: &SubFileMode, out_file: Option<&Path>,
     match_thresh: f64, total_pairs: usize, no_pauses: bool, verbose: bool) {
 
-    if verbose { 
+    if verbose {
         println!("\nRendering results...");
         if no_pauses { println!("Not pausing during output"); }
     }
@@ -74,22 +74,22 @@ pub fn render_results(sub_dir: &Path, sub_pairs: Vec<SubPair>, mode: &SubFileMod
 
         // render header & table for this pair
         format::pair_header(
-            redirecting, 
-            i + 1, 
-            &sub_a_name, 
-            &sub_b_name, 
+            redirecting,
+            i + 1,
+            &sub_a_name,
+            &sub_b_name,
             pair.matches.len(),
             pair.percentile);
 
         // analyze common substrings of fingerprints to get a vector of matches
         let matches = phase_iii::analyze_pair(pair);
-        
+
         pair_table(pair, (&sub_a_name, &sub_b_name), matches, mode).printstd();
     }
 }
 
-// Wrappers for printing messages in result rendering, because 
-// formatting can complicate things
+/// Wrappers for printing messages in result rendering, because
+/// formatting can complicate things
 mod format {
     use std::path::{Path, PathBuf};
     use ansi_term::Colour::{RGB, White};
@@ -107,7 +107,7 @@ mod format {
         }
     }
 
-    // print header for the results, containing the submission directory for later reference
+    /// print header for the results, containing the submission directory for later reference
     pub fn results_header(sub_dir: &Path) {
         // convert submission dir path to absolute path
         let sub_dir = if let Ok(full_path) = std::fs::canonicalize(sub_dir) {
@@ -119,52 +119,52 @@ mod format {
         println!("\nSubmissions Directory: {}", sub_dir.display());
     }
 
-    // print a message indicating that no overlap between submission was found
+    /// print a message indicating that no overlap between submission was found
     pub fn no_overlap_msg(redir: bool) {
         let message = "Aye, no overlap was found!";
 
-        let formatted = cond_fmt!(redir, message, 
+        let formatted = cond_fmt!(redir, message,
             RGB(102, 224, 255).bold().paint(message));
 
         println!("\n{}", formatted);
     }
 
-    // print a message indicating overlap was found
+    /// print a message indicating overlap was found
     pub fn overlap_found_msg(redir: bool) {
         let message = "Avast ye, there be submission overlap!";
 
-        let formatted = cond_fmt!(redir, message, 
+        let formatted = cond_fmt!(redir, message,
             RGB(77, 255, 77).bold().paint(message));
 
         println!("\n{}", formatted);
     }
 
-    // print a message indicating how many submission pairs will be rendered
+    /// print a message indicating how many submission pairs will be rendered
     pub fn num_pairs_rendering(_redir: bool, thresh: f64, total: usize, total_render: usize) {
         if thresh > 0.0 {
-            println!("Rendering pairs at least {:.2}% of max matches: {} kept / {} total", 
+            println!("Rendering pairs at least {:.2}% of max matches: {} kept / {} total",
                 thresh * 100.0, total_render, total);
         } else {
             println!("Rendering all submission pairs ({} total)", total_render);
         }
     }
 
-    // print the header indicating pair number, pair names, & number of matches
+    /// print the header indicating pair number, pair names, & number of matches
     pub fn pair_header(redir: bool, n: usize, a_name: &String, b_name: &String, matches: usize,
         perc_of_max: f64) {
         let match_str = &format!("{} matches", matches);
 
-        let match_fmt = cond_fmt!(redir, match_str, 
+        let match_fmt = cond_fmt!(redir, match_str,
             RGB(77, 255, 77).bold().paint(match_str));
-        let a_fmt = cond_fmt!(redir, a_name, 
+        let a_fmt = cond_fmt!(redir, a_name,
             White.bold().paint(a_name));
-        let b_fmt = cond_fmt!(redir, b_name, 
+        let b_fmt = cond_fmt!(redir, b_name,
             White.bold().paint(b_name));
 
         println!("\nPair {}: {} and {}: {} ({:.2}% of max)", n, a_fmt, b_fmt, match_fmt, perc_of_max * 100.0);
     }
 
-    // print a message indicating how many pairs have been rendered so far
+    /// print a message indicating how many pairs have been rendered so far
     pub fn pair_progress(_redir: bool, so_far: usize, total: usize) {
         let message = format!("Pausing at {} / {} pairs rendered.", so_far, total);
 
@@ -174,9 +174,9 @@ mod format {
     }
 }
 
-// Extract a "name" for a submission (for use in output) based on the sub mode: 
-// - single-file: subs are named by their only document's filename
-// - multi-file: subs are named by the dir that contains their document files
+/// Extract a "name" for a submission (for use in output) based on the sub mode:
+/// - single-file: subs are named by their only document's filename
+/// - multi-file: subs are named by the dir that contains their document files
 fn sub_name(sub: &Sub, mode: &SubFileMode) -> String {
     match mode {
         SubFileMode::Multi => {
@@ -214,7 +214,7 @@ fn sub_name(sub: &Sub, mode: &SubFileMode) -> String {
     }
 }
 
-// Generate a table summarizing fingerprint matches for a given pair of submissions
+/// Generate a table summarizing fingerprint matches for a given pair of submissions
 fn pair_table(pair: &SubPair, names: (&String, &String), matches: Vec<Match>, mode: &SubFileMode) -> Table {
     let mut table = Table::new();
 
@@ -238,11 +238,11 @@ fn pair_table(pair: &SubPair, names: (&String, &String), matches: Vec<Match>, mo
     table   // constructed table for this pair
 }
 
-// Generate a string describing the given entries, for a single cell of a sub pair table
+/// Generate a string describing the given entries, for a single cell of a sub pair table
 fn format_entries(entries: &HashSet<Entry>, sub: &Sub, mode: &SubFileMode) -> String {
     let mut entries: Vec<_> = entries.into_iter().collect();
 
-    // first sort by line range beginnings, then sort by 
+    // first sort by line range beginnings, then sort by
     // document index to group docs together for readability
     entries.sort_by(|a, b| a.lines.0.cmp(&b.lines.0));
     entries.sort_by(|a, b| a.doc_idx.cmp(&b.doc_idx));
@@ -587,7 +587,7 @@ mod tests {
                 Entry { doc_idx: 0, lines: (1, 5) },
                 Entry { doc_idx: 0, lines: (4, 8) }
             ]);
-    
+
             let sub = Sub {
                 dir_name: Some(PathBuf::from("dir/abcd/")),
                 documents: vec![
@@ -597,9 +597,9 @@ mod tests {
                     Doc::Processed(PathBuf::from("dir/abcd/fourth.arr"), Vec::new())
                 ]
             };
-    
+
             let exp_cell = String::from("first.arr lines 1-5\nfirst.arr lines 4-8\nfourth.arr lines 2-5");
-    
+
             assert_eq!(format_entries(&entries, &sub, &SubFileMode::Multi), exp_cell);
         }
     }

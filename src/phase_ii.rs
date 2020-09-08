@@ -1,4 +1,4 @@
-/* Phase II: Determine pairs of submission with significant fingerprint overlap */
+/// Phase II: Determine pairs of submission with significant fingerprint overlap
 
 use std::collections::HashSet;
 use std::collections::HashMap;
@@ -7,10 +7,10 @@ use fnv::FnvHashMap;
 use std::iter::FromIterator;
 use crate::{Doc, Sub};
 
-// A SubPair represents an unordered pair of Subs with overlapping hashes, where
-// each element X in the pair has a "percent" value, which is equal to the quotient of the size
-// of matches and the number of fingerprints contained in X;
-// the percentile value denotes how the size of matches compares to the sizes of other match sets
+/// A SubPair represents an unordered pair of Subs with overlapping hashes, where
+/// each element X in the pair has a "percent" value, which is equal to the quotient of the size
+/// of matches and the number of fingerprints contained in X;
+/// the percentile value denotes how the size of matches compares to the sizes of other match sets
 #[derive(Debug, Clone)]
 pub struct SubPair<'a> {
     pub a: &'a Sub,
@@ -21,7 +21,7 @@ pub struct SubPair<'a> {
     pub percentile: f64
 }
 
-// two SubPairs are equal if they each contain references to the same two Subs
+/// two SubPairs are equal if they each contain references to the same two Subs
 impl PartialEq for SubPair<'_> {
     fn eq(&self, other: &Self) -> bool {
         ((self.a == other.a) && (self.b == other.b)) ||
@@ -31,12 +31,12 @@ impl PartialEq for SubPair<'_> {
 
 impl Eq for SubPair<'_> {}
 
-// Consider pairs of submissions that overlap, associate them with the
-// fingerprints they share, calculate 'percent' values for each Sub in
-// a Pair and a 'percentile' value for each SubPair, keep pairs with percentile
-// greater than input threshold, order pairs by the quantity shared and return in tuple
-// along with number of total subpairs found
-pub fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64, 
+/// Consider pairs of submissions that overlap, associate them with the
+/// fingerprints they share, calculate 'percent' values for each Sub in
+/// a Pair and a 'percentile' value for each SubPair, keep pairs with percentile
+/// greater than input threshold, order pairs by the quantity shared and return in tuple
+/// along with number of total subpairs found
+pub fn find_overlaps<'a>(hash_to_subs: &'a FnvHashMap<i64, HashSet<&Sub>>, threshold: f64,
     verbose: bool) -> (Vec<SubPair<'a>>, usize) {
 
     // ensure 0 <= threshold <= 1

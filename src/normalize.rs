@@ -1,14 +1,14 @@
-/* normalize.rs: Pre-processer for Pyret programs to eliminate irrelevant features */
+/// normalize.rs: Pre-processer for Pyret programs to eliminate irrelevant features
 
 use regex::Regex;
 
-// A NormText stores the normalized text of some program and
-// encodes line number information from the original
-// file from which normalized version has been generated.
-// (accessible from line_number method)
-//
-// line_ends[x] = y means that y is the index of the first char
-// in the normalized text occurring *after* line x+1 in the original
+/// A NormText stores the normalized text of some program and
+/// encodes line number information from the original
+/// file from which normalized version has been generated.
+/// (accessible from line_number method)
+///
+/// line_ends[x] = y means that y is the index of the first char
+/// in the normalized text occurring *after* line x+1 in the original
 #[derive(Debug, PartialEq)]
 pub struct NormText {
     pub value: String,
@@ -16,8 +16,8 @@ pub struct NormText {
 }
 
 impl NormText {
-    // determine the line number in the original text that
-    // a char at index norm_idx in the normalized text corresponds to
+    /// determine the line number in the original text that
+    /// a char at index norm_idx in the normalized text corresponds to
     pub fn line_number(&self, norm_idx: i32) -> i32 {
         // iterate over all lines & the first norm char occurring *after* them
         for (zro_idx_line, first_char_after) in self.line_ends.iter().enumerate() {
@@ -38,16 +38,16 @@ impl NormText {
 // Note: unit tests may break if this is altered (written assuming 'v')
 const UNIFORM_IDENTIFIER: char = 'v';
 
-// Remove/normalize any features from a program's text that
-// shouldn't differentiate it from other programs:
-//      1. normalize identifiers
-//      2. remove type annotations
-//      3. remove whitespace
-//      4. remove docstrings
-//      5. remove comments
-// Non-ASCII text is also ignored.
-// Returns the normalized string & enough info to map parts
-// of the normalized text to line numbers in the original (LineMapping)
+/// Remove/normalize any features from a program's text that
+/// shouldn't differentiate it from other programs:
+///      1. normalize identifiers
+///      2. remove type annotations
+///      3. remove whitespace
+///      4. remove docstrings
+///      5. remove comments
+/// Non-ASCII text is also ignored.
+/// Returns the normalized string & enough info to map parts
+/// of the normalized text to line numbers in the original (LineMapping)
 pub fn normalize(program: &str) -> NormText {
     // remove any non-ascii text
     let program = program.replace(|c: char| !c.is_ascii(), "");
@@ -132,14 +132,14 @@ pub fn normalize(program: &str) -> NormText {
     NormText { value: norm, line_ends: line_ends }
 }
 
-// A Match indicates a prefix of some string that represents some feature
-// (i.e. whitespace, docstring, identifier, etc.)
-// In (match, rest, len), match is the matching prefix, rest is the
-// remaining slice of the original string, and len is the size of the match
+/// A Match indicates a prefix of some string that represents some feature
+/// (i.e. whitespace, docstring, identifier, etc.)
+/// In (match, rest, len), match is the matching prefix, rest is the
+/// remaining slice of the original string, and len is the size of the match
 type Match<'a> = (&'a str, &'a str, usize);
 
-// extract the prefix of hd that matches the given reg expression, or None
-// (ensure the given regex is prefixed with ^)
+/// extract the prefix of hd that matches the given reg expression, or None
+/// (ensure the given regex is prefixed with ^)
 fn extract_match<'a>(hd: &'a str, re: &Regex) -> Option<Match<'a>> {
     match re.find(hd) {
         Some(mat) => {
@@ -151,7 +151,7 @@ fn extract_match<'a>(hd: &'a str, re: &Regex) -> Option<Match<'a>> {
     }
 }
 
-// extract longest prefix of whitespace if any, or None
+/// extract longest prefix of whitespace if any, or None
 fn match_whitespace(hd: &str) -> Option<Match> {
     lazy_static! {
         static ref WHITESPACE: Regex = Regex::new(r"^\s+").unwrap();
@@ -160,7 +160,7 @@ fn match_whitespace(hd: &str) -> Option<Match> {
     extract_match(hd, &WHITESPACE)
 }
 
-// extract longest comment prefix if any, or None
+/// extract longest comment prefix if any, or None
 fn match_comment(hd: &str) -> Option<Match> {
     lazy_static! {
         // match single- and multi-line comments
@@ -172,7 +172,7 @@ fn match_comment(hd: &str) -> Option<Match> {
     extract_match(hd, &COMMENT)
 }
 
-// extract longest docstring prefix if any, or None
+/// extract longest docstring prefix if any, or None
 fn match_docstring(hd: &str) -> Option<Match> {
     lazy_static! {
         // match docstrings with '', "", and ``` quotes
@@ -184,7 +184,7 @@ fn match_docstring(hd: &str) -> Option<Match> {
     extract_match(hd, &DOC)
 }
 
-// extract longest type annotation prefix if any, or None
+/// extract longest type annotation prefix if any, or None
 fn match_type(hd: &str) -> Option<Match> {
     lazy_static! {
         // type parameters (i.e. <A, B, C>)
@@ -207,10 +207,10 @@ fn match_type(hd: &str) -> Option<Match> {
         ).unwrap();
     }
 
-    // Given a match of an annotation prefix, attempt to parse the
-    // following type, and combine them into a single match.
-    // Also parse arbitrary whitespace following the type (so when types
-    // are removed, no whitespace artifact will be left)
+    /// Given a match of an annotation prefix, attempt to parse the
+    /// following type, and combine them into a single match.
+    /// Also parse arbitrary whitespace following the type (so when types
+    /// are removed, no whitespace artifact will be left)
     fn parse_type<'a>(head: &'a str, prefix: Match) -> Option<Match<'a>> {
         let (_, pref_rest, pref_len) = prefix;
 
@@ -266,7 +266,7 @@ fn match_type(hd: &str) -> Option<Match> {
     extract_match(hd, &TYPE_PARAMS)
 }
 
-// extract longest string literal prefix (single, double, or triple quoted) if any, or None
+/// extract longest string literal prefix (single, double, or triple quoted) if any, or None
 fn match_string_literal(hd: &str) -> Option<Match> {
     lazy_static! {
         // match all kinds of quoted strings
@@ -278,8 +278,8 @@ fn match_string_literal(hd: &str) -> Option<Match> {
     extract_match(hd, &STRING_LIT)
 }
 
-// extract longest identifier/keyword prefix if any, or None.
-// boolean indicates true if a keyword was matched, false if identifier
+/// extract longest identifier/keyword prefix if any, or None.
+/// boolean indicates true if a keyword was matched, false if identifier
 fn match_keyword_or_ident(hd: &str) -> Option<(bool, Match)> {
     lazy_static! {
         // gleaned from pyret-lang/src/scripts/tokenize.js
@@ -326,10 +326,10 @@ fn match_keyword_or_ident(hd: &str) -> Option<(bool, Match)> {
     }
 }
 
-// Read over a slice & add the index of the next normalized text char
-// after each newline to the line ends (le) vector.
-// If preserving newlines, next index will be index right after \n, otherwise
-// idx parameter is used.
+/// Read over a slice & add the index of the next normalized text char
+/// after each newline to the line ends (le) vector.
+/// If preserving newlines, next index will be index right after \n, otherwise
+/// idx parameter is used.
 fn account_for_newlines(slice: &str, idx: i32, le: &mut Vec<i32>, preserve_newlines: bool) {
     for (i, c) in slice.chars().enumerate() {
         if c == '\n' {
@@ -554,13 +554,13 @@ mod tests {
         }
 
         expect_text(
-            "chars = \"äşŖƥΣ\"", 
+            "chars = \"äşŖƥΣ\"",
             "v=\"\"");
         expect_text(
-            "\"y̆\"", 
+            "\"y̆\"",
             "\"y\"");   // the y part of the character remains, as it is ascii
         expect_text(
-            "```ᾃὙῲЯфҖ```", 
+            "```ᾃὙῲЯфҖ```",
             "``````");
         expect_text(
             "\"a̐éö̲\"",

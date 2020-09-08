@@ -1,10 +1,10 @@
-/* cli.rs: Functions for providing the command-line interface */
+/// cli.rs: Functions for providing the command-line interface
 
 use std::path::Path;
 use std::collections::HashSet;
 
-// OptArgs encodes important system parameters that have default values
-// but can be set via the command line interface
+/// OptArgs encodes important system parameters that have default values
+/// but can be set via the command line interface
 #[derive(Debug, PartialEq)]
 pub struct OptArgs<'a> {
     pub sub_mode: SubFileMode,                  // indicates whether subs are files or dirs
@@ -18,19 +18,19 @@ pub struct OptArgs<'a> {
     pub no_pauses: bool                         // if true, don't pause to confirm when rendering output pairs
 }
 
-// SubFileMode indicates how submissions should be found within 
-// the directory argument the program is given:
-//  1) Single assumes submissions are individual .arr files, and
-//     will construct one Sub for each .arr file in the given dir
-//  2) Multi assumes submissions are directories with multiple .arr files
-//     within them, and will construct one Sub for each dir in the given dir.
+/// SubFileMode indicates how submissions should be found within
+/// the directory argument the program is given:
+///  1) Single assumes submissions are individual .arr files, and
+///     will construct one Sub for each .arr file in the given dir
+///  2) Multi assumes submissions are directories with multiple .arr files
+///     within them, and will construct one Sub for each dir in the given dir.
 #[derive(Debug, PartialEq)]
 pub enum SubFileMode {
     Single,
     Multi
 }
 
-// default values of all system parameters
+/// default values of all system parameters
 impl Default for OptArgs<'_> {
     fn default() -> Self {
         OptArgs {
@@ -47,10 +47,10 @@ impl Default for OptArgs<'_> {
     }
 }
 
-// Parse command line arguments and return a Path to the 
-// submissions dir, and a struct with optional arg values.
-// If the help flag is included, print_help() will be called
-// and the program will exit.
+/// Parse command line arguments and return a Path to the
+/// submissions dir, and a struct with optional arg values.
+/// If the help flag is included, print_help() will be called
+/// and the program will exit.
 pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
     let argc = args.len();
 
@@ -158,10 +158,10 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
         };
     }
 
-    // Check a predicate on a value, and give an informative error message 
-    // in the case of failure. Call display() on value to prep it for printing
-    fn validate<F, T, D>(flag: &str, value: &T, valid: F, display: D, reminder: &str) 
-        where 
+    /// Check a predicate on a value, and give an informative error message
+    /// in the case of failure. Call display() on value to prep it for printing
+    fn validate<F, T, D>(flag: &str, value: &T, valid: F, display: D, reminder: &str)
+        where
             F: Fn(&T) -> bool,
             T: std::fmt::Display,
             D: Fn(&T) -> T {
@@ -172,13 +172,13 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
 
     // validate both k & t: must be positive and 0 < k <= t
     let kt_remind = "0 < k <= t";
-    validate("noise threshold (k)", &options.k, |&k| k > 0 && k <= options.t, 
+    validate("noise threshold (k)", &options.k, |&k| k > 0 && k <= options.t,
         |&k| k, kt_remind);
-    validate("guarantee threshold (t)", &options.t, |&t| t > 0 && t >= options.k, 
+    validate("guarantee threshold (t)", &options.t, |&t| t > 0 && t >= options.k,
         |&t| t, kt_remind);
 
     // validate match threshold
-    validate("--match-threshold", &options.match_threshold, |&t| t >= 0.0 && t <= 1.0, 
+    validate("--match-threshold", &options.match_threshold, |&t| t >= 0.0 && t <= 1.0,
         |&m| m * 100.0, "must be a percentage value (0-100)");
 
     if let Some(dir) = sub_dir {
@@ -189,11 +189,11 @@ pub fn parse_args(args: &Vec<String>) -> (&Path, OptArgs) {
     }
 }
 
-// Print a help message explaining the command line interface & exit.
-// Format the message so that whatever executable you used to run the help
-// command is what appears in the directions
+/// Print a help message explaining the command line interface & exit.
+/// Format the message so that whatever executable you used to run the help
+/// command is what appears in the directions
 fn print_help(exec: &String) {
-    // this is no good but I want to be able to use it as a formatting 
+    // this is no good but I want to be able to use it as a formatting
     // string and I don't want to write out the whitespace explicitly
     println!(r#"
 Copy-detection for Pyret
@@ -203,7 +203,7 @@ Usage:
 
 SUBMISSIONS-DIR indicates a directory containing submissions.
 
-Submissions can be either 
+Submissions can be either
     1) individual .arr files (single-file mode)
     2) subdirectories of .arr files (multi-file mode (default))
 
@@ -222,7 +222,7 @@ OPTIONS:
 Note: abbreviated flags cannot be combined
 
 For more detailed info see https://github.com/rpaul48/pyret-moss
-"#, 
+"#,
     exec);
 
     std::process::exit(0);

@@ -1,15 +1,15 @@
-/* io_redirect.rs: Functionality for switching output between stdout & a file */
+/// io_redirect.rs: Functionality for switching output between stdout & a file
 
 use std::path::Path;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
 use gag::Redirect;
 
-// Begin redirecting stdout to the indicated file & return 
-// the gag::Redirect if successful
+/// Begin redirecting stdout to the indicated file & return
+/// the gag::Redirect if successful
 pub fn initialize_redirect(file: &Path) -> Redirect<File> {
     // open/create the indicated file for writing
-    let log = match 
+    let log = match
         OpenOptions::new()
             .truncate(true) // only truncate on the first open
             .create(true)
@@ -22,10 +22,10 @@ pub fn initialize_redirect(file: &Path) -> Redirect<File> {
     Redirect::stdout(log).unwrap()
 }
 
-// Resume redirecting stdout to the indicated file (do NOT truncate)
-// & update the given redirect to reflect it
+/// Resume redirecting stdout to the indicated file (do NOT truncate)
+/// & update the given redirect to reflect it
 pub fn resume_redirect(redirect: &mut Option<Redirect<File>>, file: &Path) {
-    let log = match 
+    let log = match
         OpenOptions::new()
             .append(true)   // append on further openings
             .write(true)
@@ -40,7 +40,7 @@ pub fn resume_redirect(redirect: &mut Option<Redirect<File>>, file: &Path) {
     };
 }
 
-// End the given redirect & update its option wrapper to None
+/// End the given redirect & update its option wrapper to None
 pub fn end_redirect(redirect: &mut Option<Redirect<File>>) {
     match redirect {
         Some(rd) => {
@@ -51,8 +51,8 @@ pub fn end_redirect(redirect: &mut Option<Redirect<File>>) {
     };
 }
 
-// Print a message and enter an infinite loop until confirmation is 
-// received from the user to proceed
+/// Print a message and enter an infinite loop until confirmation is
+/// received from the user to proceed
 pub fn confirm_continue() {
     loop {
         let mut confirm = String::new();
@@ -82,9 +82,9 @@ pub fn confirm_continue() {
 #[cfg(test)]
 mod tests {
 
-    // NOTE: These tests involve redirecting print statements & will 
-    // fail if run normally with `cargo test` 
-    // 
+    // NOTE: These tests involve redirecting print statements & will
+    // fail if run normally with `cargo test`
+    //
     // To include these tests, run:
     // `cargo test --features "test_redirects" -- --nocapture`
 

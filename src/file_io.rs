@@ -1,4 +1,4 @@
-/* file_io.rs: File I/O */
+/// file_io.rs: File I/O
 
 use std::fs;
 use std::collections::HashSet;
@@ -7,9 +7,9 @@ use std::io;
 use crate::{Sub, Doc};
 use crate::cli::SubFileMode;
 
-// Construct a vector of PathBufs to all files in a given 
-// directory that pass the given predicate
-fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>> 
+/// Construct a vector of PathBufs to all files in a given
+/// directory that pass the given predicate
+fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>>
     where F: Fn(&PathBuf) -> bool {
     let mut paths = Vec::new();
 
@@ -25,7 +25,7 @@ fn paths_in_dir<F>(dir: &Path, keep: F) -> io::Result<Vec<PathBuf>>
     Ok(paths)
 }
 
-// Gets paths to all dirs in a given directory
+/// Gets paths to all dirs in a given directory
 fn dirs_in_dir(dir: &Path) -> Vec<PathBuf> {
     match paths_in_dir(dir, |p| p.is_dir()) {
         Ok(paths) => paths,
@@ -35,7 +35,7 @@ fn dirs_in_dir(dir: &Path) -> Vec<PathBuf> {
     }
 }
 
-// Gets paths to all .arr files in a given directory
+/// Gets paths to all .arr files in a given directory
 pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     let is_arr = |p: &PathBuf| {
         match p.extension() {
@@ -51,9 +51,9 @@ pub fn arr_files_in_dir(dir: &Path) -> Vec<PathBuf> {
     }
 }
 
-// Build a vector of submissions by traversing the given directory 
-// in a manner specified by the sub_mode
-pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode, 
+/// Build a vector of submissions by traversing the given directory
+/// in a manner specified by the sub_mode
+pub fn construct_subs(sub_dir: &Path, sub_mode: &SubFileMode,
     ignore_files: &HashSet<String>, verbose: bool) -> Vec<Sub> {
     let mut subs = Vec::new();
 
@@ -282,7 +282,7 @@ mod tests {
                     "./test-dirs/test/multi-file/sub2/main.arr"
                 ])
             ];
-            
+
             for o in out.iter_mut() { o.documents.sort(); }
             for e in exp_subs.iter_mut() { e.documents.sort(); }
             out.sort(); exp_subs.sort();
@@ -306,7 +306,7 @@ mod tests {
                     "./test-dirs/test/multi-file/sub2/main.arr"
                 ])
             ];
-            
+
             for o in out.iter_mut() { o.documents.sort(); }
             for e in exp_subs.iter_mut() { e.documents.sort(); }
             out.sort(); exp_subs.sort();

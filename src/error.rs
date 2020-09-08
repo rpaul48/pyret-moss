@@ -1,6 +1,6 @@
-/* error.rs: Graceful error handling */
+/// error.rs: Graceful error handling
 
-// print an error message to stderr & exit, without panicking
+/// print an error message to stderr & exit, without panicking
 #[macro_export]
 macro_rules! err {
     // no args
